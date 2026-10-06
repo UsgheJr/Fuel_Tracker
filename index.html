@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FuelTracker - Gestione Viaggi & Spesa Benzina</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- html2pdf.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Supabase JS Client (opzionale se si attiva il backend) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen">
+
+  <!-- TOP NAV -->
+  <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <i data-lucide="fuel" class="w-7 h-7 text-amber-300"></i>
+        <span class="text-xl font-bold tracking-tight">FuelTracker</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button id="btn-request-notif" onclick="requestNotificationPermission()" class="text-xs bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg border border-indigo-400 flex items-center gap-1.5 transition">
+          <i data-lucide="bell" class="w-4 h-4"></i> Attiva Notifiche
+        </button>
+        <button onclick="exportPDF()" class="text-xs bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition shadow-sm">
+          <i data-lucide="file-down" class="w-4 h-4"></i> Esporta Report PDF
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- BANNER PROMEMORIA (In-App Reminder) -->
+  <div id="reminder-banner" class="max-w-7xl mx-auto px-4 mt-4 hidden no-print">
+    <div class="bg-amber-50 border-l-4 border-amber-500 p-3 rounded-r-lg shadow-sm flex items-start justify-between">
+      <div class="flex items-center space-x-3">
+        <i data-lucide="alert-circle" class="w-5 h-5 text-amber-600 flex-shrink-0"></i>
+        <div class="text-sm text-amber-800" id="reminder-text"></div>
+      </div>
+      <button onclick="dismissBanner()" class="text-amber-500 hover:text-amber-700">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- KPI SUMMARY CARDS -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Spesa Totale</p>
+        <p class="text-2xl font-black text-indigo-600 mt-1" id="kpi-total-cost">€ 0.00</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Km Percorsi</p>
+        <p class="text-2xl font-black text-slate-800 mt-1" id="kpi-total-km">0.0 km</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Costo Medio / Km</p>
+        <p class="text-2xl font-black text-emerald-600 mt-1" id="kpi-cost-per-km">€ 0.000</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Consumo Medio</p>
+        <p class="text-2xl font-black text-slate-800 mt-1" id="kpi-avg-consumption">0.0 l/100km</p>
+      </div>
+    </section>
+
+    <!-- BOX PIENO ATTIVO & AZIONI -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6 no-print">
+      
+      <!-- GESTIONE BOX (Pieni di Benzina) -->
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b pb-3 border-slate-100">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="gauge" class="w-5 h-5 text-indigo-600"></i>
+            <h2 class="font-bold text-slate-800">Box Rifornimento</h2>
+          </div>
+          <span id="active-box-badge" class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Box Attivo</span>
+        </div>
+
+        <div class="text-sm space-y-1">
+          <p class="text-slate-500">Box Corrente: <strong id="lbl-box-title" class="text-slate-800">-</strong></p>
+          <p class="text-slate-500">Prezzo Carburante: <strong id="lbl-box-price" class="text-indigo-600 font-bold">- €/l</strong></p>
+        </div>
+
+        <form id="form-new-box" onsubmit="handleCreateBox(event)" class="space-y-3 pt-2 border-t border-slate-100">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Nuovo Pieno / Rifornimento</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-medium text-slate-600">Prezzo (€/Litro)</label>
+              <input type="number" step="0.001" min="0.1" required id="box-price-input" placeholder="1.789" class="mt-1 w-full text-sm rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600">Data Pieno</label>
+              <input type="date" required id="box-date-input" class="mt-1 w-full text-sm rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+          </div>
+          <button type="submit" class="w-full bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-1">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i> Registra Nuovo Box
+          </button>
+        </form>
+      </div>
+
+      <!-- IMPORTAZIONE DATI ESTERNI (PIPE FORMAT) -->
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center space-x-2 border-b pb-3 border-slate-100">
+          <i data-lucide="file-input" class="w-5 h-5 text-amber-500"></i>
+          <h2 class="font-bold text-slate-800">Importa Viaggi Esterni</h2>
+        </div>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          Incolla le righe nel formato:<br>
+          <code class="text-[11px] bg-slate-100 p-1 rounded block mt-1 overflow-x-auto text-slate-700">Partenza | Ts Partenza | Arrivo | Ts Arrivo | Km | Consumo | Categoria</code>
+        </p>
+        <textarea id="import-text" rows="3" placeholder="Milano | 2026-10-01 08:30 | Bologna | 2026-10-01 10:45 | 215.4 | 5.8 | Lavoro" class="w-full text-xs font-mono rounded-lg border border-slate-300 p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+        <button onclick="handleImportText()" class="w-full bg-slate-800 text-white hover:bg-slate-700 text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-1">
+          <i data-lucide="upload" class="w-4 h-4"></i> Importa nel Box Attivo
+        </button>
+      </div>
+
+      <!-- AGGIUNTA MANUALE VIAGGIO -->
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        <div class="flex items-center space-x-2 border-b pb-3 border-slate-100">
+          <i data-lucide="pen-tool" class="w-5 h-5 text-emerald-600"></i>
+          <h2 class="font-bold text-slate-800">Nuovo Viaggio Manuale</h2>
+        </div>
+        <form id="form-manual-trip" onsubmit="handleManualTrip(event)" class="space-y-2">
+          <div class="grid grid-cols-2 gap-2">
+            <input type="text" id="m-start" placeholder="Partenza" required class="text-xs rounded-lg border border-slate-300 p-2">
+            <input type="text" id="m-dest" placeholder="Destinazione" required class="text-xs rounded-lg border border-slate-300 p-2">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="datetime-local" id="m-start-time" required class="text-xs rounded-lg border border-slate-300 p-2">
+            <input type="datetime-local" id="m-dest-time" required class="text-xs rounded-lg border border-slate-300 p-2">
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <input type="number" step="0.1" id="m-km" placeholder="Km" required class="text-xs rounded-lg border border-slate-300 p-2">
+            <input type="number" step="0.1" id="m-cons" placeholder="l/100km" required class="text-xs rounded-lg border border-slate-300 p-2">
+            <input type="text" id="m-cat" placeholder="Categoria" required class="text-xs rounded-lg border border-slate-300 p-2">
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 text-white hover:bg-emerald-500 text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-1">
+            <i data-lucide="plus" class="w-4 h-4"></i> Aggiungi Viaggio
+          </button>
+        </form>
+      </div>
+
+    </section>
+
+    <!-- AREA REPORT ESORTABILE IN PDF (Contiene Grafici e Sintesi) -->
+    <div id="pdf-report-container" class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
+      
+      <div class="border-b pb-4 flex justify-between items-center">
+        <div>
+          <h1 class="text-xl font-bold text-slate-800">Report Sintesi Consumi & Costi Carburante</h1>
+          <p class="text-xs text-slate-500 mt-1">Generato il <span id="report-date">-</span> | Analisi aggregata del veicolo</p>
+        </div>
+        <div class="text-right">
+          <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">Veicolo Singolo</span>
+        </div>
+      </div>
+
+      <!-- GRAFICI AGGREGATI -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+        <div class="p-3 border rounded-xl bg-slate-50">
+          <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider text-center mb-2">Ripartizione Costo per Categoria</h4>
+          <div class="h-64 relative flex items-center justify-center">
+            <canvas id="chart-categories"></canvas>
+          </div>
+        </div>
+        <div class="p-3 border rounded-xl bg-slate-50">
+          <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider text-center mb-2">Spesa per Box di Rifornimento (€)</h4>
+          <div class="h-64 relative flex items-center justify-center">
+            <canvas id="chart-boxes"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABELLA DI SINTESI AGGREGATA PER CATEGORIA -->
+      <div class="space-y-3">
+        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Sintesi Aggregata per Categoria</h4>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
+                <th class="py-2.5 px-3 font-semibold">Categoria</th>
+                <th class="py-2.5 px-3 font-semibold">Viaggi</th>
+                <th class="py-2.5 px-3 font-semibold">Km Totali</th>
+                <th class="py-2.5 px-3 font-semibold">Carburante (L)</th>
+                <th class="py-2.5 px-3 font-semibold">Costo Totale (€)</th>
+                <th class="py-2.5 px-3 font-semibold">% della Spesa</th>
+              </tr>
+            </thead>
+            <tbody id="table-category-summary" class="divide-y divide-slate-100">
+              <!-- Calcolato Dinamicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- FILTRI & TABELLA DETTAGLIATA VIAGGI (No-print opzionale) -->
+      <div class="space-y-3 pt-4 border-t border-slate-100">
+        <div class="flex flex-wrap items-center justify-between gap-3 no-print">
+          <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Elenco Dettagliato Viaggi</h4>
+          <div class="flex items-center gap-2">
+            <!-- Filtro Categoria -->
+            <select id="filter-category" onchange="renderApp()" class="text-xs rounded border-slate-300 border p-1.5 focus:outline-none">
+              <option value="ALL">Tutte le Categorie</option>
+            </select>
+            <!-- Filtro Box -->
+            <select id="filter-box" onchange="renderApp()" class="text-xs rounded border-slate-300 border p-1.5 focus:outline-none">
+              <option value="ALL">Tutti i Box</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
+                <th class="py-2.5 px-3 font-semibold">Data Partenza</th>
+                <th class="py-2.5 px-3 font-semibold">Tratta</th>
+                <th class="py-2.5 px-3 font-semibold">Distanza</th>
+                <th class="py-2.5 px-3 font-semibold">Consumo</th>
+                <th class="py-2.5 px-3 font-semibold">Box (€/L)</th>
+                <th class="py-2.5 px-3 font-semibold">Categoria</th>
+                <th class="py-2.5 px-3 font-semibold text-right">Costo Viaggio</th>
+                <th class="py-2.5 px-3 font-semibold text-center no-print">Azione</th>
+              </tr>
+            </thead>
+            <tbody id="table-trips-body" class="divide-y divide-slate-100">
+              <!-- Renderizzato via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- IMPOSTAZIONI PROMEMORIA & CONFIGURAZIONE SUPABASE -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-6 no-print">
+      
+      <!-- Impostazioni Notifiche -->
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="clock" class="w-5 h-5 text-indigo-600"></i>
+          <h3 class="font-bold text-slate-800 text-sm">Promemoria Giornalieri Viaggi Abituali</h3>
+        </div>
+        <p class="text-xs text-slate-500">Configura un orario per ricevere un avviso per un viaggio ricorrente (es. pendolarismo).</p>
+        <div class="grid grid-cols-2 gap-2 pt-2">
+          <input type="text" id="habitual-trip-name" placeholder="Es. Casa - Lavoro" class="text-xs rounded-lg border border-slate-300 p-2">
+          <input type="time" id="habitual-trip-time" class="text-xs rounded-lg border border-slate-300 p-2">
+        </div>
+        <button onclick="saveHabitualReminder()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold py-2 rounded-lg transition">
+          Salva Promemoria Abituale
+        </button>
+      </div>
+
+      <!-- Configurazione Supabase (Opzionale) -->
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="database" class="w-5 h-5 text-emerald-600"></i>
+          <h3 class="font-bold text-slate-800 text-sm">Sincronizzazione Supabase (Opzionale)</h3>
+        </div>
+        <p class="text-xs text-slate-500">Attualmente i dati risiedono nel browser. Per sincronizzarli su database cloud, inserisci i parametri Supabase:</p>
+        <div class="space-y-2">
+          <input type="text" id="supabase-url" placeholder="https://xyz.supabase.co" class="w-full text-xs rounded border border-slate-300 p-2">
+          <input type="password" id="supabase-key" placeholder="anon-public-key" class="w-full text-xs rounded border border-slate-300 p-2">
+        </div>
+        <button onclick="saveSupabaseConfig()" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold py-2 rounded-lg transition">
+          Salva Credenziali Cloud
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    // --- STATO APPLICATIVO ---
+    let boxes = JSON.parse(localStorage.getItem('ft_boxes')) || [];
+    let trips = JSON.parse(localStorage.getItem('ft_trips')) || [];
+    let habitualConfig = JSON.parse(localStorage.getItem('ft_habitual')) || { name: 'Casa - Ufficio', time: '08:30' };
+
+    let categoryChart = null;
+    let boxChart = null;
+
+    // Inizializza box predefinito se vuoto
+    if (boxes.length === 0) {
+      boxes.push({
+        id: 'box_' + Date.now(),
+        date: new Date().toISOString().split('T')[0],
+        pricePerLiter: 1.799,
+        active: true
+      });
+      saveData();
+    }
+
+    // --- SALVATAGGIO LOCALE ---
+    function saveData() {
+      localStorage.setItem('ft_boxes', JSON.stringify(boxes));
+      localStorage.setItem('ft_trips', JSON.stringify(trips));
+    }
+
+    // --- FORMULA CALCOLO COSTO VIAGGIO ---
+    function computeTripCost(distanceKm, consumptionPer100Km, pricePerLiter) {
+      const liters = (distanceKm * consumptionPer100Km) / 100;
+      const cost = liters * pricePerLiter;
+      return { liters, cost };
+    }
+
+    // --- GESTIONE BOX (Pieni) ---
+    function handleCreateBox(e) {
+      e.preventDefault();
+      const price = parseFloat(document.getElementById('box-price-input').value);
+      const date = document.getElementById('box-date-input').value;
+
+      // Disattiva gli altri box
+      boxes.forEach(b => b.active = false);
+
+      const newBox = {
+        id: 'box_' + Date.now(),
+        date: date,
+        pricePerLiter: price,
+        active: true
+      };
+      boxes.unshift(newBox);
+      saveData();
+      document.getElementById('form-new-box').reset();
+      renderApp();
+    }
+
+    function getActiveBox() {
+      return boxes.find(b => b.active) || boxes[0];
+    }
+
+    // --- IMPORTAZIONE TESTUALE (Pipe Delimited) ---
+    // Formato: Partenza | Ts Partenza | Destinazione | Ts Destinazione | Km | Consumo | Categoria
+    function handleImportText() {
+      const text = document.getElementById('import-text').value.trim();
+      if (!text) return;
+
+      const lines = text.split('\n');
+      const activeBox = getActiveBox();
+      let importedCount = 0;
+
+      lines.forEach(line => {
+        const parts = line.split('|').map(s => s.trim());
+        if (parts.length >= 7) {
+          const trip = {
+            id: 'trip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+            boxId: activeBox.id,
+            origin: parts[0],
+            originTime: parts[1],
+            destination: parts[2],
+            destinationTime: parts[3],
+            distanceKm: parseFloat(parts[4]) || 0,
+            consumption: parseFloat(parts[5]) || 0,
+            category: parts[6] || 'Generale'
+          };
+          trips.unshift(trip);
+          importedCount++;
+        }
+      });
+
+      if (importedCount > 0) {
+        saveData();
+        document.getElementById('import-text').value = '';
+        renderApp();
+        alert(`Importati con successo ${importedCount} viaggi nel box attivo!`);
+      } else {
+        alert("Formato non valido. Assicurati di separare i 7 campi con il carattere '|'.");
+      }
+    }
+
+    // --- AGGIUNTA MANUALE ---
+    function handleManualTrip(e) {
+      e.preventDefault();
+      const activeBox = getActiveBox();
+
+      const trip = {
+        id: 'trip_' + Date.now(),
+        boxId: activeBox.id,
+        origin: document.getElementById('m-start').value,
+        originTime: document.getElementById('m-start-time').value,
+        destination: document.getElementById('m-dest').value,
+        destinationTime: document.getElementById('m-dest-time').value,
+        distanceKm: parseFloat(document.getElementById('m-km').value),
+        consumption: parseFloat(document.getElementById('m-cons').value),
+        category: document.getElementById('m-cat').value.trim() || 'Generale'
+      };
+
+      trips.unshift(trip);
+      saveData();
+      document.getElementById('form-manual-trip').reset();
+      renderApp();
+    }
+
+    function deleteTrip(id) {
+      if (confirm('Eliminare questo viaggio?')) {
+        trips = trips.filter(t => t.id !== id);
+        saveData();
+        renderApp();
+      }
+    }
+
+    // --- PROMEMORIA & NOTIFICHE ---
+    function checkReminders() {
+      // 1. Check 7 giorni dall'ultimo pieno
+      if (boxes.length > 0) {
+        const lastBox = boxes[0];
+        const lastDate = new Date(lastBox.date);
+        const today = new Date();
+        const diffDays = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
+
+        if (diffDays >= 7) {
+          const banner = document.getElementById('reminder-banner');
+          const text = document.getElementById('reminder-text');
+          text.innerHTML = `<strong>Avviso Rifornimento:</strong> Sono passati <strong>${diffDays} giorni</strong> dal tuo ultimo pieno (${lastBox.date}). Hai effettuato un nuovo rifornimento?`;
+          banner.classList.remove('hidden');
+
+          if (Notification.permission === 'granted') {
+            new Notification('FuelTracker: Promemoria Pieno', {
+              body: `Sono trascorsi ${diffDays} giorni dall'ultimo rifornimento registrato.`,
+              icon: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png'
+            });
+          }
+        }
+      }
+
+      // 2. Controllo Notifica Viaggio Abituale
+      const now = new Date();
+      const currentHoursMin = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      if (habitualConfig && habitualConfig.time === currentHoursMin && Notification.permission === 'granted') {
+        new Notification(`Promemoria Viaggio: ${habitualConfig.name}`, {
+          body: `Hai effettuato il tragitto abituale "${habitualConfig.name}" oggi?`,
+          icon: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png'
+        });
+      }
+    }
+
+    function dismissBanner() {
+      document.getElementById('reminder-banner').classList.add('hidden');
+    }
+
+    function requestNotificationPermission() {
+      if (!("Notification" in window)) {
+        alert("Questo browser non supporta le notifiche desktop.");
+        return;
+      }
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          alert("Notifiche abilitate con successo!");
+        }
+      });
+    }
+
+    function saveHabitualReminder() {
+      const name = document.getElementById('habitual-trip-name').value;
+      const time = document.getElementById('habitual-trip-time').value;
+      if (name && time) {
+        habitualConfig = { name, time };
+        localStorage.setItem('ft_habitual', JSON.stringify(habitualConfig));
+        alert('Promemoria viaggio abituale impostato per le ore ' + time);
+      }
+    }
+
+    function saveSupabaseConfig() {
+      const url = document.getElementById('supabase-url').value;
+      const key = document.getElementById('supabase-key').value;
+      if (url && key) {
+        localStorage.setItem('ft_sb_url', url);
+        localStorage.setItem('ft_sb_key', key);
+        alert('Credenziali salvate. Pronto per l\'integrazione live!');
+      }
+    }
+
+    // --- ESPORTAZIONE PDF SINTESI CON GRAFICI ---
+    function exportPDF() {
+      const element = document.getElementById('pdf-report-container');
+      const opt = {
+        margin:       [10, 10, 10, 10],
+        filename:     `FuelTracker_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opt).from(element).save();
+    }
+
+    // --- RENDERING DASHBOARD, TABELLE E GRAFICI ---
+    function renderApp() {
+      document.getElementById('report-date').textContent = new Date().toLocaleDateString('it-IT');
+      
+      const activeBox = getActiveBox();
+      document.getElementById('lbl-box-title').textContent = `${activeBox.date} (ID: ${activeBox.id.substr(-6)})`;
+      document.getElementById('lbl-box-price').textContent = `€ ${activeBox.pricePerLiter.toFixed(3)} / L`;
+
+      // Popola tendine filtri
+      const catFilterEl = document.getElementById('filter-category');
+      const boxFilterEl = document.getElementById('filter-box');
+      const curCatVal = catFilterEl.value;
+      const curBoxVal = boxFilterEl.value;
+
+      const categories = [...new Set(trips.map(t => t.category))];
+      catFilterEl.innerHTML = '<option value="ALL">Tutte le Categorie</option>' + categories.map(c => `<option value="${c}">${c}</option>`).join('');
+      boxFilterEl.innerHTML = '<option value="ALL">Tutti i Box</option>' + boxes.map(b => `<option value="${b.id}">Box ${b.date} (€${b.pricePerLiter})</option>`).join('');
+      
+      catFilterEl.value = curCatVal;
+      boxFilterEl.value = curBoxVal;
+
+      // Filtraggio
+      const filteredTrips = trips.filter(t => {
+        const matchesCat = (curCatVal === 'ALL' || t.category === curCatVal);
+        const matchesBox = (curBoxVal === 'ALL' || t.boxId === curBoxVal);
+        return matchesCat && matchesBox;
+      });
+
+      // Calcolo KPI Complessivi
+      let totalKm = 0;
+      let totalLiters = 0;
+      let totalCost = 0;
+
+      const categoryStats = {};
+      const boxStats = {};
+
+      // Mappatura Box per accesso rapido al prezzo
+      const boxMap = {};
+      boxes.forEach(b => {
+        boxMap[b.id] = b;
+        boxStats[b.id] = { label: `${b.date} (€${b.pricePerLiter})`, cost: 0 };
+      });
+
+      // Calcolo tabella viaggi
+      const tbody = document.getElementById('table-trips-body');
+      tbody.innerHTML = '';
+
+      filteredTrips.forEach(t => {
+        const b = boxMap[t.boxId] || activeBox;
+        const { liters, cost } = computeTripCost(t.distanceKm, t.consumption, b.pricePerLiter);
+
+        totalKm += t.distanceKm;
+        totalLiters += liters;
+        totalCost += cost;
+
+        // Raggruppamento per Categoria
+        if (!categoryStats[t.category]) {
+          categoryStats[t.category] = { count: 0, km: 0, liters: 0, cost: 0 };
+        }
+        categoryStats[t.category].count++;
+        categoryStats[t.category].km += t.distanceKm;
+        categoryStats[t.category].liters += liters;
+        categoryStats[t.category].cost += cost;
+
+        // Raggruppamento per Box
+        if (boxStats[t.boxId]) {
+          boxStats[t.boxId].cost += cost;
+        }
+
+        // Creazione riga
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+        row.innerHTML = `
+          <td class="py-2 px-3 text-slate-600">${t.originTime ? t.originTime.replace('T', ' ') : '-'}</td>
+          <td class="py-2 px-3 font-medium text-slate-800">${t.origin} &rarr; ${t.destination}</td>
+          <td class="py-2 px-3">${t.distanceKm.toFixed(1)} km</td>
+          <td class="py-2 px-3">${t.consumption.toFixed(1)} l/100km</td>
+          <td class="py-2 px-3 text-slate-500">€ ${b.pricePerLiter.toFixed(3)}</td>
+          <td class="py-2 px-3"><span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[11px] font-semibold">${t.category}</span></td>
+          <td class="py-2 px-3 text-right font-bold text-slate-900">€ ${cost.toFixed(2)}</td>
+          <td class="py-2 px-3 text-center no-print">
+            <button onclick="deleteTrip('${t.id}')" class="text-rose-500 hover:text-rose-700 p-1">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      // Aggiorna KPI Cards
+      document.getElementById('kpi-total-cost').textContent = `€ ${totalCost.toFixed(2)}`;
+      document.getElementById('kpi-total-km').textContent = `${totalKm.toFixed(1)} km`;
+      document.getElementById('kpi-cost-per-km').textContent = totalKm > 0 ? `€ ${(totalCost / totalKm).toFixed(3)}` : '€ 0.000';
+      document.getElementById('kpi-avg-consumption').textContent = totalKm > 0 ? `${((totalLiters / totalKm) * 100).toFixed(2)} l/100km` : '0.0 l/100km';
+
+      // Sintesi per Categoria
+      const catTableBody = document.getElementById('table-category-summary');
+      catTableBody.innerHTML = '';
+      Object.keys(categoryStats).forEach(cat => {
+        const item = categoryStats[cat];
+        const share = totalCost > 0 ? ((item.cost / totalCost) * 100).toFixed(1) : 0;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td class="py-2 px-3 font-bold text-slate-700">${cat}</td>
+          <td class="py-2 px-3">${item.count}</td>
+          <td class="py-2 px-3">${item.km.toFixed(1)} km</td>
+          <td class="py-2 px-3">${item.liters.toFixed(1)} L</td>
+          <td class="py-2 px-3 font-bold text-slate-900">€ ${item.cost.toFixed(2)}</td>
+          <td class="py-2 px-3"><span class="text-indigo-600 font-semibold">${share}%</span></td>
+        `;
+        catTableBody.appendChild(row);
+      });
+
+      // Aggiorna Grafici Chart.js
+      updateCharts(categoryStats, boxStats);
+
+      // Re-inizializza icone
+      lucide.createIcons();
+    }
+
+    function updateCharts(categoryStats, boxStats) {
+      // 1. Grafico a Torta Categorie
+      const catLabels = Object.keys(categoryStats);
+      const catData = catLabels.map(k => categoryStats[k].cost.toFixed(2));
+
+      if (categoryChart) categoryChart.destroy();
+      const ctxCat = document.getElementById('chart-categories').getContext('2d');
+      categoryChart = new Chart(ctxCat, {
+        type: 'doughnut',
+        data: {
+          labels: catLabels.length ? catLabels : ['Nessun dato'],
+          datasets: [{
+            data: catData.length ? catData : [1],
+            backgroundColor: ['#4f46e5', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } }
+          }
+        }
+      });
+
+      // 2. Grafico a Barre Box
+      const boxLabels = Object.values(boxStats).map(b => b.label);
+      const boxData = Object.values(boxStats).map(b => b.cost.toFixed(2));
+
+      if (boxChart) boxChart.destroy();
+      const ctxBox = document.getElementById('chart-boxes').getContext('2d');
+      boxChart = new Chart(ctxBox, {
+        type: 'bar',
+        data: {
+          labels: boxLabels,
+          datasets: [{
+            label: 'Spesa (€)',
+            data: boxData,
+            backgroundColor: '#4f46e5'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }
+
+    // Inizializzazione al caricamento
+    window.addEventListener('DOMContentLoaded', () => {
+      // Data odierna di default per il form box
+      document.getElementById('box-date-input').value = new Date().toISOString().split('T')[0];
+      
+      // Carica configurazione salvata habitual reminder
+      if (habitualConfig) {
+        document.getElementById('habitual-trip-name').value = habitualConfig.name || '';
+        document.getElementById('habitual-trip-time').value = habitualConfig.time || '';
+      }
+
+      renderApp();
+      checkReminders();
+
+      // Check periodico promemoria ogni 60 secondi
+      setInterval(checkReminders, 60000);
+    });
+  </script>
+</body>
+</html>
