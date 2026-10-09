@@ -106,7 +106,6 @@ function parseCSVLine(textLine) {
   return result.map(val => val.replace(/^"|"$/g, ''));
 }
 
-// CORREZIONE 1: Importazione CSV associata rigorosamente al Box Corrente (Attivo)
 function handleCSVFileUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -115,7 +114,7 @@ function handleCSVFileUpload(e) {
   reader.onload = function(event) {
     const text = event.target.result;
     const lines = text.split('\n');
-    const activeBox = getActiveBox(); // Rileva il box corrente attivo
+    const activeBox = getActiveBox();
     let importedCount = 0;
 
     for (let i = 0; i < lines.length; i++) {
@@ -134,7 +133,7 @@ function handleCSVFileUpload(e) {
 
         const trip = {
           id: 'trip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-          boxId: activeBox.id, // Assegnazione al box attivo
+          boxId: activeBox.id,
           origin: getShortLocationName(fullOrigin),
           fullOrigin: fullOrigin,
           originTime,
@@ -154,7 +153,7 @@ function handleCSVFileUpload(e) {
       StorageManager.saveData(boxes, trips);
       document.getElementById('csv-file-input').value = '';
       renderApp();
-      alert(`Importati con successo ${importedCount} viaggi nel box corrente: "${activeBox.name || activeBox.date}"!`);
+      alert(`Importati con successo ${importedCount} viaggi nel box corrente!`);
     } else {
       alert("Nessun viaggio valido trovato nel file CSV.");
     }
@@ -162,7 +161,6 @@ function handleCSVFileUpload(e) {
   reader.readAsText(file);
 }
 
-// CORREZIONE 1 (Bis): Anche l'importazione testuale viene associata al box corrente
 function handleImportText() {
   const textElement = document.getElementById('import-text');
   if (!textElement) return;
@@ -244,6 +242,20 @@ function deleteTrip(id) {
   }
 }
 
+// Funzione di eliminazione massiva per i viaggi selezionati
+function deleteSelectedTrips() {
+  const checkboxes = document.querySelectorAll('.trip-checkbox:checked');
+  const idsToDelete = Array.from(checkboxes).map(cb => cb.value);
+
+  if (idsToDelete.length === 0) return;
+
+  if (confirm(`Sei sicuro di voler eliminare i ${idsToDelete.length} viaggi selezionati?`)) {
+    trips = trips.filter(t => !idsToDelete.includes(t.id));
+    StorageManager.saveData(boxes, trips);
+    renderApp();
+  }
+}
+
 function exportPDF() {
   const element = document.getElementById('pdf-report-container');
   const opt = {
@@ -256,7 +268,6 @@ function exportPDF() {
   html2pdf().set(opt).from(element).save();
 }
 
-// CORREZIONE 2: Aggiungiamo i campi di filtro data nel DOM dei componenti se non ci sono, oppure gestiamo la logica di filtraggio
 function renderApp() {
   document.getElementById('report-date').textContent = new Date().toLocaleDateString('it-IT');
   
@@ -280,13 +291,11 @@ function renderApp() {
     boxFilterEl.value = curBoxVal;
   }
 
-  // Lettura filtri data (opzionali se presenti nella UI)
   const dateFromEl = document.getElementById('filter-date-from');
   const dateToEl = document.getElementById('filter-date-to');
   const dateFrom = dateFromEl ? dateFromEl.value : '';
   const dateTo = dateToEl ? dateToEl.value : '';
 
-  // Filtraggio globale applicato sia alla tabella viaggi che alla sintesi aggregata e ai grafici
   const filteredTrips = trips.filter(t => {
     const matchesCat = (curCatVal === 'ALL' || t.category === curCatVal);
     const matchesBox = (curBoxVal === 'ALL' || t.boxId === curBoxVal);
@@ -322,7 +331,6 @@ function renderApp() {
     totalLiters += liters;
     totalCost += cost;
 
-    // La sintesi aggregata si calcola interamente sui viaggi filtrati
     if (!categoryStats[t.category]) {
       categoryStats[t.category] = { count: 0, km: 0, liters: 0, cost: 0 };
     }
@@ -339,6 +347,9 @@ function renderApp() {
     const fullDest = t.fullDestination || t.destination;
 
     row.innerHTML = `
+      <td class="py-2 px-3 text-center no-print">
+        <input type="checkbox" value="${t.id}" class="trip-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+      </td>
       <td class="py-2 px-3 text-slate-600">${t.originTime ? t.originTime.replace('T', ' ').substring(0, 16) : '-'}</td>
       <td class="py-2 px-3 font-medium text-slate-800" title="${fullOrig} &rarr; ${fullDest}">
         ${t.origin} &rarr; ${t.destination}
@@ -357,13 +368,14 @@ function renderApp() {
     tbody.appendChild(row);
   });
 
-  // Aggiornamento KPI
+  // Gestione dinamica dello stato dei checkbox e del pulsante di eliminazione multipla
+  setupSelectionHandlers();
+
   document.getElementById('kpi-total-cost').textContent = `€ ${totalCost.toFixed(2)}`;
   document.getElementById('kpi-total-km').textContent = `${totalKm.toFixed(1)} km`;
   document.getElementById('kpi-cost-per-km').textContent = totalKm > 0 ? `€ ${(totalCost / totalKm).toFixed(3)}` : '€ 0.000';
   document.getElementById('kpi-avg-consumption').textContent = totalKm > 0 ? `${((totalLiters / totalKm) * 100).toFixed(2)} l/100km` : '0.0 l/100km';
 
-  // Aggiornamento Tabella di Sintesi Aggregata (riflette i filtri box, categoria e data)
   const catTableBody = document.getElementById('table-category-summary');
   catTableBody.innerHTML = '';
   Object.keys(categoryStats).forEach(cat => {
@@ -383,6 +395,46 @@ function renderApp() {
 
   updateCharts(categoryStats, boxStats);
   lucide.createIcons();
+}
+
+// Gestione eventi interattivi per i checkbox
+function setupSelectionHandlers() {
+  const selectAllCb = document.getElementById('select-all-checkbox');
+  const tripCbs = document.querySelectorAll('.trip-checkbox');
+  const deleteBtn = document.getElementById('btn-delete-selected');
+  const selectedCountSpan = document.getElementById('selected-count');
+
+  if (!selectAllCb || !deleteBtn) return;
+
+  // Seleziona / Deseleziona tutti
+  selectAllCb.checked = false;
+  selectAllCb.onchange = function() {
+    tripCbs.forEach(cb => cb.checked = selectAllCb.checked);
+    updateDeleteButtonState();
+  };
+
+  // Aggiorna contatore e visibilità pulsante al cambio dei singoli checkbox
+  tripCbs.forEach(cb => {
+    cb.onchange = function() {
+      updateDeleteButtonState();
+      // Controlla se sono tutti spuntati per aggiornare il master checkbox
+      const allChecked = Array.from(tripCbs).every(c => c.checked);
+      selectAllCb.checked = allChecked;
+    };
+  });
+
+  function updateDeleteButtonState() {
+    const checkedCount = document.querySelectorAll('.trip-checkbox:checked').length;
+    selectedCountSpan.textContent = checkedCount;
+    if (checkedCount > 0) {
+      deleteBtn.classList.remove('hidden');
+    } else {
+      deleteBtn.classList.add('hidden');
+    }
+  }
+
+  // Associa l'evento di click al pulsante di eliminazione multipla
+  deleteBtn.onclick = deleteSelectedTrips;
 }
 
 function updateCharts(categoryStats, boxStats) {
@@ -442,7 +494,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('form-manual-trip').addEventListener('submit', handleManualTrip);
   document.getElementById('btn-export-pdf').addEventListener('click', exportPDF);
   
-  // Gestione dinamica dei filtri (Box, Categoria e Date)
   const filterCat = document.getElementById('filter-category');
   const filterBox = document.getElementById('filter-box');
   const filterDateFrom = document.getElementById('filter-date-from');

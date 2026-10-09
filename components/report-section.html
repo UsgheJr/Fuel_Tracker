@@ -45,42 +45,47 @@
     </div>
   </div>
 
-  <!-- FILTRI & TABELLA DETTAGLIATA -->
-  <div class="space-y-3 pt-4 border-t border-slate-100">
-    <div class="flex flex-wrap items-center justify-between gap-3 no-print">
+<!-- FILTRI & TABELLA DETTAGLIATA -->
+<div class="space-y-3 pt-4 border-t border-slate-100">
+  <div class="flex flex-wrap items-center justify-between gap-3 no-print">
+    <div class="flex items-center gap-3">
       <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Elenco Dettagliato Viaggi</h4>
-      <div class="flex items-center gap-2 flex-wrap">
-        <!-- Filtro Data Inizio -->
-        <input type="date" id="filter-date-from" class="text-xs rounded border-slate-300 border p-1.5 focus:outline-none" title="Da Data">
-        <!-- Filtro Data Fine -->
-        <input type="date" id="filter-date-to" class="text-xs rounded border-slate-300 border p-1.5 focus:outline-none" title="A Data">
-        <!-- Filtro Categoria -->
-        <select id="filter-category" class="text-xs rounded border-slate-300 border p-1.5 focus:outline-none">
-          <option value="ALL">Tutte le Categorie</option>
-        </select>
-        <!-- Filtro Box -->
-        <select id="filter-box" class="text-xs rounded border-slate-300 border p-1.5 focus:outline-none">
-          <option value="ALL">Tutti i Box</option>
-        </select>
-      </div>
+      <!-- Pulsante Elimina Selezionati (inizialmente nascosto) -->
+      <button id="btn-delete-selected" class="hidden text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Elimina Selezionati (<span id="selected-count">0</span>)
+      </button>
     </div>
+    
+    <div class="flex items-center gap-2 flex-wrap">
+      <input type="date" id="filter-date-from" class="text-xs rounded border-slate-300 border p-1.5 focus:outline-none" title="Da Data">
+      <input type="date" id="filter-date-to" class="text-xs rounded border-slate-300 border p-1.5 focus:outline-none" title="A Data">
+      <select id="filter-category" class="text-xs rounded border-slate-300 border p-1.5 focus:outline-none">
+        <option value="ALL">Tutte le Categorie</option>
+      </select>
+      <select id="filter-box" class="text-xs rounded border-slate-300 border p-1.5 focus:outline-none">
+        <option value="ALL">Tutti i Box</option>
+      </select>
+    </div>
+  </div>
 
-    <div class="overflow-x-auto">
-      <table class="w-full text-left text-xs border-collapse">
-        <thead>
-          <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
-            <th class="py-2.5 px-3 font-semibold">Data Partenza</th>
-            <th class="py-2.5 px-3 font-semibold">Tratta</th>
-            <th class="py-2.5 px-3 font-semibold">Distanza</th>
-            <th class="py-2.5 px-3 font-semibold">Consumo</th>
-            <th class="py-2.5 px-3 font-semibold">Box (€/L)</th>
-            <th class="py-2.5 px-3 font-semibold">Categoria</th>
-            <th class="py-2.5 px-3 font-semibold text-right">Costo Viaggio</th>
-            <th class="py-2.5 px-3 font-semibold text-center no-print">Azione</th>
-          </tr>
-        </thead>
-        <tbody id="table-trips-body" class="divide-y divide-slate-100"></tbody>
-      </table>
-    </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-left text-xs border-collapse">
+      <thead>
+        <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
+          <th class="py-2.5 px-3 w-8 text-center no-print">
+            <input type="checkbox" id="select-all-checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+          </th>
+          <th class="py-2.5 px-3 font-semibold">Data Partenza</th>
+          <th class="py-2.5 px-3 font-semibold">Tratta</th>
+          <th class="py-2.5 px-3 font-semibold">Distanza</th>
+          <th class="py-2.5 px-3 font-semibold">Consumo</th>
+          <th class="py-2.5 px-3 font-semibold">Box (€/L)</th>
+          <th class="py-2.5 px-3 font-semibold">Categoria</th>
+          <th class="py-2.5 px-3 font-semibold text-right">Costo Viaggio</th>
+          <th class="py-2.5 px-3 font-semibold text-center no-print">Azione</th>
+        </tr>
+      </thead>
+      <tbody id="table-trips-body" class="divide-y divide-slate-100"></tbody>
+    </table>
   </div>
 </div>
