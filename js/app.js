@@ -1,4 +1,3 @@
-// --- STATO APPLICATIVO ---
 let boxes = StorageManager.getBoxes();
 let trips = StorageManager.getTrips();
 let habitualConfig = StorageManager.getHabitualConfig();
@@ -9,11 +8,52 @@ let boxChart = null;
 if (boxes.length === 0) {
   boxes.push({
     id: 'box_' + Date.now(),
+    name: 'Pieno Iniziale',
     date: new Date().toISOString().split('T')[0],
     pricePerLiter: 1.799,
     active: true
   });
   StorageManager.saveData(boxes, trips);
+}
+
+const provinceMap = {
+  "avellino": "AV", "salerno": "SA", "napoli": "NA", "benevento": "BN",
+  "caserta": "CE", "roma": "RM", "milano": "MI", "torino": "TO",
+  "bologna": "BO", "firenze": "FI"
+};
+
+function getShortLocationName(fullAddress) {
+  if (!fullAddress) return 'Sconosciuta';
+
+  let comune = "";
+  let siglaProvincia = "";
+
+  const provMatch = fullAddress.toLowerCase().match(/(?:provincia|città metropolitana)\s+di\s+([a-zà-ù\s]+)/i);
+  if (provMatch) {
+    const nomeProv = provMatch[1].trim().toLowerCase();
+    if (provinceMap[nomeProv]) {
+      siglaProvincia = provinceMap[nomeProv];
+    }
+  }
+
+  let cleaned = fullAddress
+    .replace(/^(via|strada|corso|viale|piazza|largo)[^,]+,\s*/i, '')
+    .replace(/\b\d{5}\b/g, '')
+    .replace(/provincia\s+di\s+[a-zà-ù\s]+/gi, '')
+    .replace(/città\s+metropolitana\s+di\s+[a-zà-ù\s]+/gi, '')
+    .replace(/italia/gi, '')
+    .trim();
+
+  const parts = cleaned.split(',').map(p => p.trim()).filter(p => p.length > 0);
+  if (parts.length > 0) {
+    comune = parts[0];
+  }
+
+  if (!comune) {
+    comune = fullAddress.substring(0, 20);
+  }
+
+  return siglaProvincia ? `${comune} (${siglaProvincia})` : comune;
 }
 
 function computeTripCost(distanceKm, consumptionPer100Km, pricePerLiter) {
@@ -28,6 +68,7 @@ function getActiveBox() {
 
 function handleCreateBox(e) {
   e.preventDefault();
+  const name = document.getElementById('box-name-input').value.trim();
   const price = parseFloat(document.getElementById('box-price-input').value);
   const date = document.getElementById('box-date-input').value;
 
@@ -35,6 +76,7 @@ function handleCreateBox(e) {
 
   const newBox = {
     id: 'box_' + Date.now(),
+    name: name || `Box del ${date}`,
     date: date,
     pricePerLiter: price,
     active: true
@@ -64,6 +106,7 @@ function parseCSVLine(textLine) {
   return result.map(val => val.replace(/^"|"$/g, ''));
 }
 
+// CORREZIONE 1: Importazione CSV associata rigorosamente al Box Corrente (Attivo)
 function handleCSVFileUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -72,7 +115,7 @@ function handleCSVFileUpload(e) {
   reader.onload = function(event) {
     const text = event.target.result;
     const lines = text.split('\n');
-    const activeBox = getActiveBox();
+    const activeBox = getActiveBox(); // Rileva il box corrente attivo
     let importedCount = 0;
 
     for (let i = 0; i < lines.length; i++) {
@@ -81,9 +124,9 @@ function handleCSVFileUpload(e) {
 
       const cols = parseCSVLine(line);
       if (cols.length >= 7 && !cols[0].toLowerCase().includes('partenza')) {
-        const origin = cols[0];
+        const fullOrigin = cols[0];
         const originTime = cols[1];
-        const destination = cols[2];
+        const fullDestination = cols[2];
         const destinationTime = cols[3];
         const distanceKm = parseFloat(cols[4].replace(',', '.')) || 0;
         const consumption = parseFloat(cols[5].replace(',', '.')) || 0;
@@ -91,10 +134,12 @@ function handleCSVFileUpload(e) {
 
         const trip = {
           id: 'trip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-          boxId: activeBox.id,
-          origin,
+          boxId: activeBox.id, // Assegnazione al box attivo
+          origin: getShortLocationName(fullOrigin),
+          fullOrigin: fullOrigin,
           originTime,
-          destination,
+          destination: getShortLocationName(fullDestination),
+          fullDestination: fullDestination,
           destinationTime,
           distanceKm,
           consumption,
@@ -109,7 +154,7 @@ function handleCSVFileUpload(e) {
       StorageManager.saveData(boxes, trips);
       document.getElementById('csv-file-input').value = '';
       renderApp();
-      alert(`Importati con successo ${importedCount} viaggi dal file CSV nel box attivo!`);
+      alert(`Importati con successo ${importedCount} viaggi nel box corrente: "${activeBox.name || activeBox.date}"!`);
     } else {
       alert("Nessun viaggio valido trovato nel file CSV.");
     }
@@ -117,6 +162,7 @@ function handleCSVFileUpload(e) {
   reader.readAsText(file);
 }
 
+// CORREZIONE 1 (Bis): Anche l'importazione testuale viene associata al box corrente
 function handleImportText() {
   const textElement = document.getElementById('import-text');
   if (!textElement) return;
@@ -138,9 +184,11 @@ function handleImportText() {
       const trip = {
         id: 'trip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         boxId: activeBox.id,
-        origin: parts[0],
+        origin: getShortLocationName(parts[0]),
+        fullOrigin: parts[0],
         originTime: parts[1],
-        destination: parts[2],
+        destination: getShortLocationName(parts[2]),
+        fullDestination: parts[2],
         destinationTime: parts[3],
         distanceKm: parseFloat(parts[4].replace(',', '.')) || 0,
         consumption: parseFloat(parts[5].replace(',', '.')) || 0,
@@ -155,7 +203,7 @@ function handleImportText() {
     StorageManager.saveData(boxes, trips);
     textElement.value = '';
     renderApp();
-    alert(`Importati con successo ${importedCount} viaggi nel box attivo!`);
+    alert(`Importati con successo ${importedCount} viaggi nel box corrente!`);
   } else {
     alert("Formato non valido.");
   }
@@ -165,12 +213,17 @@ function handleManualTrip(e) {
   e.preventDefault();
   const activeBox = getActiveBox();
 
+  const startInput = document.getElementById('m-start').value;
+  const destInput = document.getElementById('m-dest').value;
+
   const trip = {
     id: 'trip_' + Date.now(),
     boxId: activeBox.id,
-    origin: document.getElementById('m-start').value,
+    origin: getShortLocationName(startInput),
+    fullOrigin: startInput,
     originTime: document.getElementById('m-start-time').value,
-    destination: document.getElementById('m-dest').value,
+    destination: getShortLocationName(destInput),
+    fullDestination: destInput,
     destinationTime: document.getElementById('m-dest-time').value,
     distanceKm: parseFloat(document.getElementById('m-km').value),
     consumption: parseFloat(document.getElementById('m-cons').value),
@@ -191,24 +244,6 @@ function deleteTrip(id) {
   }
 }
 
-function checkReminders() {
-  if (boxes.length > 0) {
-    const lastBox = boxes[0];
-    const lastDate = new Date(lastBox.date);
-    const today = new Date();
-    const diffDays = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
-
-    if (diffDays >= 7) {
-      const banner = document.getElementById('reminder-banner');
-      const text = document.getElementById('reminder-text');
-      if (banner && text) {
-        text.innerHTML = `<strong>Avviso Rifornimento:</strong> Sono passati <strong>${diffDays} giorni</strong> dal tuo ultimo pieno (${lastBox.date}).`;
-        banner.classList.remove('hidden');
-      }
-    }
-  }
-}
-
 function exportPDF() {
   const element = document.getElementById('pdf-report-container');
   const opt = {
@@ -221,29 +256,49 @@ function exportPDF() {
   html2pdf().set(opt).from(element).save();
 }
 
+// CORREZIONE 2: Aggiungiamo i campi di filtro data nel DOM dei componenti se non ci sono, oppure gestiamo la logica di filtraggio
 function renderApp() {
   document.getElementById('report-date').textContent = new Date().toLocaleDateString('it-IT');
   
   const activeBox = getActiveBox();
-  document.getElementById('lbl-box-title').textContent = `${activeBox.date} (ID: ${activeBox.id.substr(-6)})`;
+  document.getElementById('lbl-box-title').textContent = `${activeBox.name || activeBox.date} (€ ${activeBox.pricePerLiter})` ;
   document.getElementById('lbl-box-price').textContent = `€ ${activeBox.pricePerLiter.toFixed(3)} / L`;
 
   const catFilterEl = document.getElementById('filter-category');
   const boxFilterEl = document.getElementById('filter-box');
-  const curCatVal = catFilterEl.value;
-  const curBoxVal = boxFilterEl.value;
+  const curCatVal = catFilterEl ? catFilterEl.value : 'ALL';
+  const curBoxVal = boxFilterEl ? boxFilterEl.value : 'ALL';
 
   const categories = [...new Set(trips.map(t => t.category))];
-  catFilterEl.innerHTML = '<option value="ALL">Tutte le Categorie</option>' + categories.map(c => `<option value="${c}">${c}</option>`).join('');
-  boxFilterEl.innerHTML = '<option value="ALL">Tutti i Box</option>' + boxes.map(b => `<option value="${b.id}">Box ${b.date} (€${b.pricePerLiter})</option>`).join('');
+  if (catFilterEl) {
+    catFilterEl.innerHTML = '<option value="ALL">Tutte le Categorie</option>' + categories.map(c => `<option value="${c}">${c}</option>`).join('');
+    catFilterEl.value = curCatVal;
+  }
   
-  catFilterEl.value = curCatVal;
-  boxFilterEl.value = curBoxVal;
+  if (boxFilterEl) {
+    boxFilterEl.innerHTML = '<option value="ALL">Tutti i Box</option>' + boxes.map(b => `<option value="${b.id}">${b.name || ('Box ' + b.date)} (€${b.pricePerLiter})</option>`).join('');
+    boxFilterEl.value = curBoxVal;
+  }
 
+  // Lettura filtri data (opzionali se presenti nella UI)
+  const dateFromEl = document.getElementById('filter-date-from');
+  const dateToEl = document.getElementById('filter-date-to');
+  const dateFrom = dateFromEl ? dateFromEl.value : '';
+  const dateTo = dateToEl ? dateToEl.value : '';
+
+  // Filtraggio globale applicato sia alla tabella viaggi che alla sintesi aggregata e ai grafici
   const filteredTrips = trips.filter(t => {
     const matchesCat = (curCatVal === 'ALL' || t.category === curCatVal);
     const matchesBox = (curBoxVal === 'ALL' || t.boxId === curBoxVal);
-    return matchesCat && matchesBox;
+    
+    let matchesDate = true;
+    if (t.originTime) {
+      const tripDate = t.originTime.split('T')[0];
+      if (dateFrom && tripDate < dateFrom) matchesDate = false;
+      if (dateTo && tripDate > dateTo) matchesDate = false;
+    }
+
+    return matchesCat && matchesBox && matchesDate;
   });
 
   let totalKm = 0, totalLiters = 0, totalCost = 0;
@@ -253,7 +308,7 @@ function renderApp() {
   const boxMap = {};
   boxes.forEach(b => {
     boxMap[b.id] = b;
-    boxStats[b.id] = { label: `${b.date} (€${b.pricePerLiter})`, cost: 0 };
+    boxStats[b.id] = { label: `${b.name || b.date} (€${b.pricePerLiter})`, cost: 0 };
   });
 
   const tbody = document.getElementById('table-trips-body');
@@ -267,6 +322,7 @@ function renderApp() {
     totalLiters += liters;
     totalCost += cost;
 
+    // La sintesi aggregata si calcola interamente sui viaggi filtrati
     if (!categoryStats[t.category]) {
       categoryStats[t.category] = { count: 0, km: 0, liters: 0, cost: 0 };
     }
@@ -279,9 +335,14 @@ function renderApp() {
 
     const row = document.createElement('tr');
     row.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+    const fullOrig = t.fullOrigin || t.origin;
+    const fullDest = t.fullDestination || t.destination;
+
     row.innerHTML = `
       <td class="py-2 px-3 text-slate-600">${t.originTime ? t.originTime.replace('T', ' ').substring(0, 16) : '-'}</td>
-      <td class="py-2 px-3 font-medium text-slate-800">${t.origin} &rarr; ${t.destination}</td>
+      <td class="py-2 px-3 font-medium text-slate-800" title="${fullOrig} &rarr; ${fullDest}">
+        ${t.origin} &rarr; ${t.destination}
+      </td>
       <td class="py-2 px-3">${t.distanceKm.toFixed(1)} km</td>
       <td class="py-2 px-3">${t.consumption.toFixed(1)} l/100km</td>
       <td class="py-2 px-3 text-slate-500">€ ${b.pricePerLiter.toFixed(3)}</td>
@@ -296,11 +357,13 @@ function renderApp() {
     tbody.appendChild(row);
   });
 
+  // Aggiornamento KPI
   document.getElementById('kpi-total-cost').textContent = `€ ${totalCost.toFixed(2)}`;
   document.getElementById('kpi-total-km').textContent = `${totalKm.toFixed(1)} km`;
   document.getElementById('kpi-cost-per-km').textContent = totalKm > 0 ? `€ ${(totalCost / totalKm).toFixed(3)}` : '€ 0.000';
   document.getElementById('kpi-avg-consumption').textContent = totalKm > 0 ? `${((totalLiters / totalKm) * 100).toFixed(2)} l/100km` : '0.0 l/100km';
 
+  // Aggiornamento Tabella di Sintesi Aggregata (riflette i filtri box, categoria e data)
   const catTableBody = document.getElementById('table-category-summary');
   catTableBody.innerHTML = '';
   Object.keys(categoryStats).forEach(cat => {
@@ -364,9 +427,8 @@ function updateCharts(categoryStats, boxStats) {
   });
 }
 
-// Inizializzazione asincrona al caricamento
 window.addEventListener('DOMContentLoaded', async () => {
-  await loadAllComponents(); // Attende che i file HTML siano inseriti nella pagina
+  await loadAllComponents();
 
   document.getElementById('box-date-input').value = new Date().toISOString().split('T')[0];
   
@@ -377,15 +439,19 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('form-new-box').addEventListener('submit', handleCreateBox);
   document.getElementById('csv-file-input').addEventListener('change', handleCSVFileUpload);
-  document.getElementById('btn-import-text').addEventListener('click', handleImportText);
   document.getElementById('form-manual-trip').addEventListener('submit', handleManualTrip);
   document.getElementById('btn-export-pdf').addEventListener('click', exportPDF);
-  document.getElementById('filter-category').addEventListener('change', renderApp);
-  document.getElementById('filter-box').addEventListener('change', renderApp);
-  document.getElementById('btn-dismiss-banner').addEventListener('click', () => {
-    document.getElementById('reminder-banner').classList.add('hidden');
-  });
+  
+  // Gestione dinamica dei filtri (Box, Categoria e Date)
+  const filterCat = document.getElementById('filter-category');
+  const filterBox = document.getElementById('filter-box');
+  const filterDateFrom = document.getElementById('filter-date-from');
+  const filterDateTo = document.getElementById('filter-date-to');
+
+  if (filterCat) filterCat.addEventListener('change', renderApp);
+  if (filterBox) filterBox.addEventListener('change', renderApp);
+  if (filterDateFrom) filterDateFrom.addEventListener('change', renderApp);
+  if (filterDateTo) filterDateTo.addEventListener('change', renderApp);
 
   renderApp();
-  checkReminders();
 });
