@@ -1,0 +1,80 @@
+<div id="pdf-report-container" class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
+  <div class="border-b pb-4 flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-bold text-slate-800">Report Sintesi Consumi & Costi Carburante</h1>
+      <p class="text-xs text-slate-500 mt-1">Generato il <span id="report-date">-</span> | Analisi aggregata del veicolo</p>
+    </div>
+    <div class="text-right">
+      <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">Veicolo Singolo</span>
+    </div>
+  </div>
+
+  <!-- GRAFICI -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+    <div class="p-3 border rounded-xl bg-slate-50">
+      <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider text-center mb-2">Ripartizione Costo per Categoria</h4>
+      <div class="h-64 relative flex items-center justify-center">
+        <canvas id="chart-categories"></canvas>
+      </div>
+    </div>
+    <div class="p-3 border rounded-xl bg-slate-50">
+      <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider text-center mb-2">Spesa per Box di Rifornimento (€)</h4>
+      <div class="h-64 relative flex items-center justify-center">
+        <canvas id="chart-boxes"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABELLA DI SINTESI -->
+  <div class="space-y-3">
+    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Sintesi Aggregata per Categoria</h4>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs border-collapse">
+        <thead>
+          <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
+            <th class="py-2.5 px-3 font-semibold">Categoria</th>
+            <th class="py-2.5 px-3 font-semibold">Viaggi</th>
+            <th class="py-2.5 px-3 font-semibold">Km Totali</th>
+            <th class="py-2.5 px-3 font-semibold">Carburante (L)</th>
+            <th class="py-2.5 px-3 font-semibold">Costo Totale (€)</th>
+            <th class="py-2.5 px-3 font-semibold">% della Spesa</th>
+          </tr>
+        </thead>
+        <tbody id="table-category-summary" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- FILTRI & TABELLA DETTAGLIATA -->
+  <div class="space-y-3 pt-4 border-t border-slate-100">
+    <div class="flex flex-wrap items-center justify-between gap-3 no-print">
+      <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Elenco Dettagliato Viaggi</h4>
+      <div class="flex items-center gap-2">
+        <select id="filter-category" class="text-xs rounded border-slate-300 border p-1.5 focus:outline-none">
+          <option value="ALL">Tutte le Categorie</option>
+        </select>
+        <select id="filter-box" class="text-xs rounded border-slate-300 border p-1.5 focus:outline-none">
+          <option value="ALL">Tutti i Box</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs border-collapse">
+        <thead>
+          <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
+            <th class="py-2.5 px-3 font-semibold">Data Partenza</th>
+            <th class="py-2.5 px-3 font-semibold">Tratta</th>
+            <th class="py-2.5 px-3 font-semibold">Distanza</th>
+            <th class="py-2.5 px-3 font-semibold">Consumo</th>
+            <th class="py-2.5 px-3 font-semibold">Box (€/L)</th>
+            <th class="py-2.5 px-3 font-semibold">Categoria</th>
+            <th class="py-2.5 px-3 font-semibold text-right">Costo Viaggio</th>
+            <th class="py-2.5 px-3 font-semibold text-center no-print">Azione</th>
+          </tr>
+        </thead>
+        <tbody id="table-trips-body" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+  </div>
+</div>

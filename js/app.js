@@ -1,3 +1,4 @@
+// --- STATO APPLICATIVO ---
 let boxes = StorageManager.getBoxes();
 let trips = StorageManager.getTrips();
 let habitualConfig = StorageManager.getHabitualConfig();
@@ -44,7 +45,6 @@ function handleCreateBox(e) {
   renderApp();
 }
 
-// Parser CSV robusto (gestisce virgolette, virgole nei decimali e colonne multiple)
 function parseCSVLine(textLine) {
   const result = [];
   let inQuotes = false;
@@ -64,7 +64,6 @@ function parseCSVLine(textLine) {
   return result.map(val => val.replace(/^"|"$/g, ''));
 }
 
-// Gestione importazione file CSV caricato
 function handleCSVFileUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -81,13 +80,11 @@ function handleCSVFileUpload(e) {
       if (!line) continue;
 
       const cols = parseCSVLine(line);
-      // Verifica se la riga è l'intestazione o una riga dati valida (almeno 7 colonne)
       if (cols.length >= 7 && !cols[0].toLowerCase().includes('partenza')) {
         const origin = cols[0];
         const originTime = cols[1];
         const destination = cols[2];
         const destinationTime = cols[3];
-        // Sostituisce la virgola decimale con il punto per il parsing numerico corretto
         const distanceKm = parseFloat(cols[4].replace(',', '.')) || 0;
         const consumption = parseFloat(cols[5].replace(',', '.')) || 0;
         const category = cols[6] || 'Generale';
@@ -120,7 +117,6 @@ function handleCSVFileUpload(e) {
   reader.readAsText(file);
 }
 
-// Fallback per importazione testuale pipe-delimited
 function handleImportText() {
   const textElement = document.getElementById('import-text');
   if (!textElement) return;
@@ -206,37 +202,21 @@ function checkReminders() {
       const banner = document.getElementById('reminder-banner');
       const text = document.getElementById('reminder-text');
       if (banner && text) {
-        text.innerHTML = `<strong>Avviso Rifornimento:</strong> Sono passati <strong>${diffDays} giorni</strong> dal tuo ultimo pieno (${lastBox.date}). Hai effettuato un nuovo rifornimento?`;
+        text.innerHTML = `<strong>Avviso Rifornimento:</strong> Sono passati <strong>${diffDays} giorni</strong> dal tuo ultimo pieno (${lastBox.date}).`;
         banner.classList.remove('hidden');
       }
-
-      if (Notification.permission === 'granted') {
-        new Notification('FuelTracker: Promemoria Pieno', {
-          body: `Sono trascorsi ${diffDays} giorni dall'ultimo rifornimento registrato.`,
-          icon: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png'
-        });
-      }
     }
-  }
-
-  const now = new Date();
-  const currentHoursMin = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  if (habitualConfig && habitualConfig.time === currentHoursMin && Notification.permission === 'granted') {
-    new Notification(`Promemoria Viaggio: ${habitualConfig.name}`, {
-      body: `Hai effettuato il tragitto abituale "${habitualConfig.name}" oggi?`,
-      icon: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png'
-    });
   }
 }
 
 function exportPDF() {
   const element = document.getElementById('pdf-report-container');
   const opt = {
-    margin:       [10, 10, 10, 10],
-    filename:     `FuelTracker_Report_${new Date().toISOString().split('T')[0]}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    margin: [10, 10, 10, 10],
+    filename: `FuelTracker_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
   html2pdf().set(opt).from(element).save();
 }
@@ -266,10 +246,7 @@ function renderApp() {
     return matchesCat && matchesBox;
   });
 
-  let totalKm = 0;
-  let totalLiters = 0;
-  let totalCost = 0;
-
+  let totalKm = 0, totalLiters = 0, totalCost = 0;
   const categoryStats = {};
   const boxStats = {};
 
@@ -298,9 +275,7 @@ function renderApp() {
     categoryStats[t.category].liters += liters;
     categoryStats[t.category].cost += cost;
 
-    if (boxStats[t.boxId]) {
-      boxStats[t.boxId].cost += cost;
-    }
+    if (boxStats[t.boxId]) boxStats[t.boxId].cost += cost;
 
     const row = document.createElement('tr');
     row.className = 'hover:bg-slate-50 transition border-b border-slate-100';
@@ -389,7 +364,10 @@ function updateCharts(categoryStats, boxStats) {
   });
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+// Inizializzazione asincrona al caricamento
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadAllComponents(); // Attende che i file HTML siano inseriti nella pagina
+
   document.getElementById('box-date-input').value = new Date().toISOString().split('T')[0];
   
   if (habitualConfig) {
@@ -407,37 +385,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-dismiss-banner').addEventListener('click', () => {
     document.getElementById('reminder-banner').classList.add('hidden');
   });
-  
-  document.getElementById('btn-request-notif').addEventListener('click', () => {
-    if (!("Notification" in window)) {
-      alert("Questo browser non supporta le notifiche.");
-      return;
-    }
-    Notification.requestPermission().then(permission => {
-      if (permission === "granted") alert("Notifiche abilitate con successo!");
-    });
-  });
-
-  document.getElementById('btn-save-habitual').addEventListener('click', () => {
-    const name = document.getElementById('habitual-trip-name').value;
-    const time = document.getElementById('habitual-trip-time').value;
-    if (name && time) {
-      habitualConfig = { name, time };
-      StorageManager.saveHabitual(habitualConfig);
-      alert('Promemoria viaggio abituale impostato per le ore ' + time);
-    }
-  });
-
-  document.getElementById('btn-save-supabase').addEventListener('click', () => {
-    const url = document.getElementById('supabase-url').value;
-    const key = document.getElementById('supabase-key').value;
-    if (url && key) {
-      StorageManager.saveSupabase(url, key);
-      alert('Credenziali salvate!');
-    }
-  });
 
   renderApp();
   checkReminders();
-  setInterval(checkReminders, 60000);
 });
