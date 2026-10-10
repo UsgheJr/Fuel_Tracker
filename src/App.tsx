@@ -1,122 +1,105 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState, useMemo } from 'react';
+import type { Trip, RefuelBox } from './shared/types';
+import { TripCsvUploader } from './features/trips/components/TripCsvUploader';
+import { TripTable } from './features/trips/components/TripTable';
+import { RefuelBoxList } from './features/refuels/components/RefuelBoxList';
+import { TripFilters } from './features/trips/components/TripFilters';
+import { enrichTripsWithCosts } from './features/trips/services/tripMatchingService';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [refuelBoxes, setRefuelBoxes] = useState<RefuelBox[]>([
+    {
+      id: 'default-box',
+      refuel_date: '2026-10-01T00:00:00.000Z',
+      fuel_price_per_liter: 1.859,
+      notes: 'Prezzo Standard Iniziale',
+    },
+  ]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+
+  // Aggiunta di un nuovo box rifornimento
+  const handleAddRefuelBox = (newBox: RefuelBox) => {
+    setRefuelBoxes((prev) => [...prev, newBox]);
+  };
+
+  // Arricchisce i viaggi con i costi calcolati in base ai box rifornimento
+  const enrichedTrips = useMemo(() => {
+    return enrichTripsWithCosts(trips, refuelBoxes);
+  }, [trips, refuelBoxes]);
+
+  // Estrae le categorie uniche per i filtri
+  const categories = useMemo(() => {
+    const set = new Set(trips.map((t) => t.category));
+    return Array.from(set);
+  }, [trips]);
+
+  // Filtra i viaggi in base alla categoria selezionata
+  const filteredTrips = useMemo(() => {
+    if (selectedCategory === 'ALL') return enrichedTrips;
+    return enrichedTrips.filter((t) => t.category === selectedCategory);
+  }, [enrichedTrips, selectedCategory]);
+
+  // Calcola i totali sui viaggi filtrati
+  const { totalCost, totalKm } = useMemo(() => {
+    return filteredTrips.reduce(
+      (acc, trip) => {
+        acc.totalCost += trip.calculated_cost || 0;
+        acc.totalKm += trip.distance_km || 0;
+        return acc;
+      },
+      { totalCost: 0, totalKm: 0 }
+    );
+  }, [filteredTrips]);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="min-h-screen bg-gray-100 p-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        
+        {/* Header */}
+        <header className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Trip Cost Tracker</h1>
+            <p className="text-sm text-gray-500">Gestione e monitoraggio intelligente dei costi di viaggio e rifornimenti</p>
+          </div>
+        </header>
 
-      <div className="ticks"></div>
+        {/* Griglia superiore: Import CSV & Gestione Rifornimenti */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800 mb-2">Importa Viaggi</h2>
+              <p className="text-xs text-gray-500 mb-4">Carica il file CSV esportato per popolare i tragitti.</p>
+            </div>
+            <TripCsvUploader onImportParsed={(parsedTrips) => setTrips(parsedTrips)} />
+          </section>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+          <section>
+            <RefuelBoxList refuelBoxes={refuelBoxes} onAddRefuelBox={handleAddRefuelBox} />
+          </section>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        {/* Sezione Filtri e KPI */}
+        {trips.length > 0 && (
+          <section>
+            <TripFilters
+              selectedCategory={selectedCategory}
+              onCategoryChange={setSelectedCategory}
+              categories={categories}
+              totalCost={totalCost}
+              totalKm={totalKm}
+              totalTrips={filteredTrips.length}
+            />
+          </section>
+        )}
+
+        {/* Tabella Risultati */}
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-gray-800">Elenco Viaggi ({filteredTrips.length})</h2>
+          <TripTable trips={filteredTrips} />
+        </section>
+
+      </div>
+    </div>
+  );
 }
-
-export default App
