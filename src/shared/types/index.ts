@@ -1,3 +1,12 @@
+export interface RefuelBox {
+  id: string;
+  refuel_date: string;
+  fuel_price_per_liter: number;
+  liters_added?: number;
+  total_cost?: number;
+  notes?: string;
+}
+
 export interface Trip {
   id?: string;
   departure_address: string;
@@ -8,13 +17,7 @@ export interface Trip {
   average_consumption_l_100km: number;
   category: string;
   calculated_cost?: number;
-}
-
-export interface RefuelBox {
-  id: string;
-  refuel_date: string;
-  fuel_price_per_liter: number;
-  liters_added?: number;
-  total_cost?: number;
-  notes?: string;
+  refuel_box_id?: string;             
+  isBoxDateMismatched?: boolean;   
+  warningMessage?: string;           
 }
