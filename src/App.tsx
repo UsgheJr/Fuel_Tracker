@@ -20,7 +20,14 @@ export default function App() {
     },
   ]);
   const [categories] = useState(DEFAULT_CATEGORIES);
+  
+  // Stati per i Filtri Avanzati
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [selectedBoxId, setSelectedBoxId] = useState<string>('ALL');
+  const [searchText, setSearchText] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+
   const [isManualModalOpen, setIsManualModalOpen] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -60,6 +67,13 @@ export default function App() {
     );
   };
 
+  // Funzione per aggiornare il box assegnato direttamente da una riga della tabella
+  const handleUpdateRefuelBoxAssignment = (indexToUpdate: number, newBoxId: string) => {
+    setTrips((prev) =>
+      prev.map((trip, idx) => (idx === indexToUpdate ? { ...trip, refuel_box_id: newBoxId } : trip))
+    );
+  };
+
   const enrichedTrips = useMemo(() => {
     return enrichTripsWithCosts(trips, refuelBoxes);
   }, [trips, refuelBoxes]);
@@ -69,10 +83,41 @@ export default function App() {
     return Array.from(set);
   }, [trips]);
 
+  // Logica di Filtraggio Multipla Avanzata
   const filteredTrips = useMemo(() => {
-    if (selectedCategory === 'ALL') return enrichedTrips;
-    return enrichedTrips.filter((t) => t.category === selectedCategory);
-  }, [enrichedTrips, selectedCategory]);
+    return enrichedTrips.filter((trip) => {
+      // 1. Filtro Categoria
+      if (selectedCategory !== 'ALL' && trip.category !== selectedCategory) {
+        return false;
+      }
+      // 2. Filtro Box Rifornimento
+      if (selectedBoxId !== 'ALL') {
+        const tripBoxId = trip.refuel_box_id || trip.matchedRefuelBox?.id;
+        if (tripBoxId !== selectedBoxId) return false;
+      }
+      // 3. Filtro Testo (Partenza o Destinazione)
+      if (searchText.trim() !== '') {
+        const query = searchText.toLowerCase();
+        const matchDep = trip.departure_address.toLowerCase().includes(query);
+        const matchArr = trip.arrival_address.toLowerCase().includes(query);
+        if (!matchDep && !matchArr) return false;
+      }
+      // 4. Filtro Data Inizio
+      if (startDate) {
+        const tripDate = new Date(trip.departure_time).getTime();
+        const startTimestamp = new Date(`${startDate}T00:00:00`).getTime();
+        if (tripDate < startTimestamp) return false;
+      }
+      // 5. Filtro Data Fine
+      if (endDate) {
+        const tripDate = new Date(trip.departure_time).getTime();
+        const endTimestamp = new Date(`${endDate}T23:59:59`).getTime();
+        if (tripDate > endTimestamp) return false;
+      }
+
+      return true;
+    });
+  }, [enrichedTrips, selectedCategory, selectedBoxId, searchText, startDate, endDate]);
 
   const { totalCost, totalKm } = useMemo(() => {
     return filteredTrips.reduce(
@@ -158,6 +203,15 @@ export default function App() {
               selectedCategory={selectedCategory}
               onCategoryChange={setSelectedCategory}
               categories={uniqueCategories}
+              selectedBoxId={selectedBoxId}
+              onBoxChange={setSelectedBoxId}
+              refuelBoxes={refuelBoxes}
+              searchText={searchText}
+              onSearchTextChange={setSearchText}
+              startDate={startDate}
+              onStartDateChange={setStartDate}
+              endDate={endDate}
+              onEndDateChange={setEndDate}
               totalCost={totalCost}
               totalKm={totalKm}
               totalTrips={filteredTrips.length}
@@ -171,10 +225,12 @@ export default function App() {
           </div>
           <TripTable
             trips={filteredTrips}
+            refuelBoxes={refuelBoxes}
             categories={categories}
             onDeleteTrip={handleDeleteTrip}
             onDeleteMultiple={handleDeleteMultiple}
             onUpdateCategory={handleUpdateCategory}
+            onUpdateRefuelBoxAssignment={handleUpdateRefuelBoxAssignment}
           />
         </section>
       </main>

@@ -9,10 +9,12 @@ export interface EnrichedTrip extends Trip {
 
 interface TripTableProps {
   trips: EnrichedTrip[];
+  refuelBoxes: RefuelBox[];
   categories: TripCategory[];
   onDeleteTrip: (index: number) => void;
   onDeleteMultiple: (indices: number[]) => void;
   onUpdateCategory: (index: number, newCategory: string) => void;
+  onUpdateRefuelBoxAssignment: (index: number, boxId: string) => void;
 }
 
 type SortField = 'departure_time' | 'departure_address' | 'arrival_address' | 'distance_km' | 'average_consumption_l_100km' | 'category' | 'calculated_cost';
@@ -20,10 +22,12 @@ type SortOrder = 'asc' | 'desc' | 'none';
 
 export const TripTable: React.FC<TripTableProps> = ({
   trips,
+  refuelBoxes,
   categories,
   onDeleteTrip,
   onDeleteMultiple,
   onUpdateCategory,
+  onUpdateRefuelBoxAssignment,
 }) => {
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [sortField, setSortField] = useState<SortField>('departure_time');
@@ -42,7 +46,6 @@ export const TripTable: React.FC<TripTableProps> = ({
 
   const sortedTrips = useMemo(() => {
     const indexedTrips = trips.map((trip, originalIndex) => ({ trip, originalIndex }));
-
     if (sortOrder === 'none') return indexedTrips;
 
     return indexedTrips.sort((a, b) => {
@@ -56,11 +59,9 @@ export const TripTable: React.FC<TripTableProps> = ({
         const comp = valA.localeCompare(valB);
         return sortOrder === 'asc' ? comp : -comp;
       }
-
       if (typeof valA === 'number' && typeof valB === 'number') {
         return sortOrder === 'asc' ? valA - valB : valB - valA;
       }
-
       return 0;
     });
   }, [trips, sortField, sortOrder]);
@@ -82,7 +83,7 @@ export const TripTable: React.FC<TripTableProps> = ({
   if (trips.length === 0) {
     return (
       <div className="text-center py-12 bg-white rounded-xl border border-slate-200 shadow-sm">
-        <p className="text-slate-400 text-sm">Nessun viaggio trovato. Importa un file CSV o modifica i filtri.</p>
+        <p className="text-slate-400 text-sm">Nessun viaggio trovato con i filtri selezionati.</p>
       </div>
     );
   }
@@ -150,11 +151,6 @@ export const TripTable: React.FC<TripTableProps> = ({
               {sortedTrips.map(({ trip, originalIndex }) => {
                 const currentCat = categories.find(c => c.label === trip.category);
                 const badgeColor = currentCat ? currentCat.color : 'bg-slate-100 text-slate-700 border-slate-200';
-                
-                // Info tooltip rifornimento
-                const box = trip.matchedRefuelBox;
-                const boxLabel = box ? box.notes : 'Standard';
-                const boxTooltip = box ? `Prezzo: ${formatCurrency(box.fuel_price_per_liter)}/l del ${new Date(box.refuel_date).toLocaleDateString()}` : 'Prezzo standard predefinito';
 
                 return (
                   <tr key={originalIndex} className="hover:bg-slate-50/80 transition-colors">
@@ -177,19 +173,24 @@ export const TripTable: React.FC<TripTableProps> = ({
                     </td>
                     <td className="px-4 py-4 text-slate-600 whitespace-nowrap">{trip.distance_km} km</td>
                     
-                    {/* Colonna Box Rifornimento con Tooltip */}
+                    {/* Menu a tendina per cambiare box rifornimento direttamente in tabella */}
                     <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                      <span
-                        title={boxTooltip}
-                        className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 cursor-help"
-                      >
-                        ⛽ {boxLabel}
-                      </span>
-                          {trip.isBoxDateMismatched && (
+                      <div className="flex items-center space-x-2">
+                        <select
+                          value={trip.refuel_box_id || trip.matchedRefuelBox?.id || ''}
+                          onChange={(e) => onUpdateRefuelBoxAssignment(originalIndex, e.target.value)}
+                          className="text-xs font-medium bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                        >
+                          {refuelBoxes.map((box) => (
+                            <option key={box.id} value={box.id}>
+                              ⛽ {box.notes} ({box.fuel_price_per_liter} €/l)
+                            </option>
+                          ))}
+                        </select>
+                        {trip.isBoxDateMismatched && (
                           <span
                             title={trip.warningMessage}
-                            className="ml-2 px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-md cursor-help"
+                            className="px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-md cursor-help"
                           >
                             ⚠️ Inconformità
                           </span>
@@ -204,9 +205,7 @@ export const TripTable: React.FC<TripTableProps> = ({
                         className={`text-xs font-semibold px-2 py-1 rounded-full border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 ${badgeColor}`}
                       >
                         {categories.map((cat) => (
-                          <option key={cat.id} value={cat.label}>
-                            {cat.label}
-                          </option>
+                          <option key={cat.id} value={cat.label}>{cat.label}</option>
                         ))}
                       </select>
                     </td>
