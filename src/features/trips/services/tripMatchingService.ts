@@ -3,7 +3,7 @@ import { calculateTripCost } from './tripCostCalculator';
 
 export interface EnrichedTrip extends Trip {
   matchedRefuelBox?: RefuelBox;
-  isBoxDateMismatched?: boolean; // Segnalazione di inconformità
+  isBoxDateMismatched?: boolean;
   warningMessage?: string;
 }
 
@@ -21,26 +21,18 @@ export function enrichTripsWithCosts(trips: Trip[], refuelBoxes: RefuelBox[]): E
     let isMismatch = false;
     let warningMsg = '';
 
-    // Se il viaggio ha un box associato manualmente (es. inserimento manuale)
     if (trip.refuel_box_id) {
       const explicitBox = refuelBoxes.find(b => b.id === trip.refuel_box_id);
       if (explicitBox) {
         matchedBox = explicitBox;
         activePrice = explicitBox.fuel_price_per_liter;
-
-        // Controllo di inconformità temporale: 
-        // Verifichiamo se il box selezionato è temporalmente coerente con la data del viaggio
-        // (Es. il box deve essere il più vicino o cronologicamente corretto rispetto ad altri box)
         const boxTime = new Date(explicitBox.refuel_date).getTime();
-        
-        // Esempio di regola di inconformità: la data del viaggio è precedente alla data del box di rifornimento
         if (tripTime < boxTime) {
           isMismatch = true;
           warningMsg = `Inconformità: Il box "${explicitBox.notes}" è del ${new Date(explicitBox.refuel_date).toLocaleDateString()}, successivo alla data del viaggio.`;
         }
       }
     } else {
-      // Per i viaggi da CSV, associamo automaticamente in base alla data
       if (sortedBoxes.length > 0) {
         const validBox = sortedBoxes
           .slice()
@@ -57,7 +49,9 @@ export function enrichTripsWithCosts(trips: Trip[], refuelBoxes: RefuelBox[]): E
       }
     }
 
-    const cost = calculateTripCost(trip.distance_km, trip.average_consumption_l_100km, activePrice);
+    // Passiamo l'unità di misura (default 'l/100km' se non specificata)
+    const unit = trip.consumption_unit || 'l/100km';
+    const cost = calculateTripCost(trip.distance_km, trip.average_consumption_l_100km, activePrice, unit);
 
     return {
       ...trip,

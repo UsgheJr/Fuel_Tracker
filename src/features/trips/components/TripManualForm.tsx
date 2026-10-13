@@ -30,6 +30,7 @@ export const TripManualForm: React.FC<TripManualFormProps> = ({
 
   const [distance, setDistance] = useState('');
   const [consumption, setConsumption] = useState('5.5');
+  const [consumptionUnit, setConsumptionUnit] = useState<'l/100km' | 'l/km'>('l/100km');
   const [category, setCategory] = useState(categories[0]?.label || 'Personale');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -51,8 +52,9 @@ export const TripManualForm: React.FC<TripManualFormProps> = ({
       arrival_time: combinedDateTime,
       distance_km: parsedDistance,
       average_consumption_l_100km: parsedConsumption,
+      consumption_unit: consumptionUnit, // Salviamo l'unità scelta
       category: category,
-      refuel_box_id: refuelBoxId, // Assegnazione esplicita del box scelto
+      refuel_box_id: refuelBoxId,
     };
 
     onAddTrip(newTrip);
@@ -64,7 +66,7 @@ export const TripManualForm: React.FC<TripManualFormProps> = ({
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-bold text-slate-800">Aggiungi Viaggio Manualmente</h3>
         {onClose && (
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer">
             ✕
           </button>
         )}
@@ -117,9 +119,9 @@ export const TripManualForm: React.FC<TripManualFormProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Chilometri (km) *</label>
+            <label className="block font-semibold text-slate-700 mb-1">Chilometri *</label>
             <input
               type="text"
               placeholder="es. 34.5"
@@ -130,15 +132,26 @@ export const TripManualForm: React.FC<TripManualFormProps> = ({
             />
           </div>
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Consumo (l/100km) *</label>
+            <label className="block font-semibold text-slate-700 mb-1">Consumo *</label>
             <input
               type="text"
-              placeholder="es. 4.2"
+              placeholder="es. 5.5"
               value={consumption}
               onChange={(e) => setConsumption(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               required
             />
+          </div>
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">Unità</label>
+            <select
+              value={consumptionUnit}
+              onChange={(e) => setConsumptionUnit(e.target.value as 'l/100km' | 'l/km')}
+              className="w-full px-2 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+            >
+              <option value="l/100km">l/100km</option>
+              <option value="l/km">l/km</option>
+            </select>
           </div>
         </div>
 
@@ -153,7 +166,7 @@ export const TripManualForm: React.FC<TripManualFormProps> = ({
             >
               {sortedBoxes.map((box) => (
                 <option key={box.id} value={box.id}>
-                  {box.notes} ({box.fuel_price_per_liter} €/l del {new Date(box.refuel_date).toLocaleDateString()})
+                  {box.notes} ({box.fuel_price_per_liter} €/l)
                 </option>
               ))}
             </select>
@@ -166,9 +179,7 @@ export const TripManualForm: React.FC<TripManualFormProps> = ({
               className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
             >
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.label}>
-                  {cat.label}
-                </option>
+                <option key={cat.id} value={cat.label}>{cat.label}</option>
               ))}
             </select>
           </div>
@@ -179,14 +190,14 @@ export const TripManualForm: React.FC<TripManualFormProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition"
+              className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition cursor-pointer"
             >
               Annulla
             </button>
           )}
           <button
             type="submit"
-            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-sm transition"
+            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-sm transition cursor-pointer"
           >
             Salva Viaggio
           </button>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Trip, RefuelBox } from './shared/types';
 import { DEFAULT_CATEGORIES } from './shared/types/categories';
 import { TripCsvUploader } from './features/trips/components/TripCsvUploader';
@@ -7,7 +7,12 @@ import { RefuelBoxList } from './features/refuels/components/RefuelBoxList';
 import { TripFilters } from './features/trips/components/TripFilters';
 import { TripManualForm } from './features/trips/components/TripManualForm';
 import { enrichTripsWithCosts } from './features/trips/services/tripMatchingService';
-import { saveTripsToSupabase } from './features/trips/services/tripService';
+import { 
+  fetchTripsFromSupabase, 
+  fetchRefuelsFromSupabase, 
+  saveTripsToSupabase, 
+  saveRefuelBoxToSupabase 
+} from './features/trips/services/tripService';
 
 export default function App() {
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -21,7 +26,7 @@ export default function App() {
   ]);
   const [categories] = useState(DEFAULT_CATEGORIES);
   
-  // Stati per i Filtri Avanzati
+  // Stati Filtri Avanzati
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedBoxId, setSelectedBoxId] = useState<string>('ALL');
   const [searchText, setSearchText] = useState<string>('');
@@ -31,6 +36,31 @@ export default function App() {
   const [isManualModalOpen, setIsManualModalOpen] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [isLoadingDb, setIsLoadingDb] = useState<boolean>(true);
+
+  // FETCH INIZIALE ALLO START: Collegamento a Supabase per recuperare dati salvati
+  useEffect(() => {
+    async function loadDataFromCloud() {
+      setIsLoadingDb(true);
+      try {
+        const cloudTrips = await fetchTripsFromSupabase();
+        const cloudBoxes = await fetchRefuelsFromSupabase();
+
+        if (cloudTrips.length > 0) {
+          setTrips(cloudTrips);
+        }
+        if (cloudBoxes.length > 0) {
+          setRefuelBoxes(cloudBoxes);
+        }
+      } catch (err) {
+        console.error('Impossibile caricare i dati da Supabase:', err);
+      } finally {
+        setIsLoadingDb(false);
+      }
+    }
+
+    loadDataFromCloud();
+  }, []);
 
   const handleImportParsed = (parsedTrips: Trip[]) => {
     setTrips((prevTrips) => [...prevTrips, ...parsedTrips]);
@@ -43,14 +73,24 @@ export default function App() {
     setSaveMessage(null);
   };
 
-  const handleAddRefuelBox = (newBox: RefuelBox) => {
+  const handleAddRefuelBox = async (newBox: RefuelBox) => {
     setRefuelBoxes((prev) => [...prev, newBox]);
+    try {
+      await saveRefuelBoxToSupabase(newBox);
+    } catch (e) {
+      console.error('Errore salvataggio box su cloud', e);
+    }
   };
 
-  const handleUpdateRefuelBox = (updatedBox: RefuelBox) => {
+  const handleUpdateRefuelBox = async (updatedBox: RefuelBox) => {
     setRefuelBoxes((prev) =>
       prev.map((box) => (box.id === updatedBox.id ? updatedBox : box))
     );
+    try {
+      await saveRefuelBoxToSupabase(updatedBox);
+    } catch (e) {
+      console.error('Errore aggiornamento box su cloud', e);
+    }
   };
 
   const handleDeleteTrip = (indexToDelete: number) => {
@@ -67,7 +107,6 @@ export default function App() {
     );
   };
 
-  // Funzione per aggiornare il box assegnato direttamente da una riga della tabella
   const handleUpdateRefuelBoxAssignment = (indexToUpdate: number, newBoxId: string) => {
     setTrips((prev) =>
       prev.map((trip, idx) => (idx === indexToUpdate ? { ...trip, refuel_box_id: newBoxId } : trip))
@@ -83,38 +122,29 @@ export default function App() {
     return Array.from(set);
   }, [trips]);
 
-  // Logica di Filtraggio Multipla Avanzata
   const filteredTrips = useMemo(() => {
     return enrichedTrips.filter((trip) => {
-      // 1. Filtro Categoria
-      if (selectedCategory !== 'ALL' && trip.category !== selectedCategory) {
-        return false;
-      }
-      // 2. Filtro Box Rifornimento
+      if (selectedCategory !== 'ALL' && trip.category !== selectedCategory) return false;
       if (selectedBoxId !== 'ALL') {
         const tripBoxId = trip.refuel_box_id || trip.matchedRefuelBox?.id;
         if (tripBoxId !== selectedBoxId) return false;
       }
-      // 3. Filtro Testo (Partenza o Destinazione)
       if (searchText.trim() !== '') {
         const query = searchText.toLowerCase();
         const matchDep = trip.departure_address.toLowerCase().includes(query);
         const matchArr = trip.arrival_address.toLowerCase().includes(query);
         if (!matchDep && !matchArr) return false;
       }
-      // 4. Filtro Data Inizio
       if (startDate) {
         const tripDate = new Date(trip.departure_time).getTime();
         const startTimestamp = new Date(`${startDate}T00:00:00`).getTime();
         if (tripDate < startTimestamp) return false;
       }
-      // 5. Filtro Data Fine
       if (endDate) {
         const tripDate = new Date(trip.departure_time).getTime();
         const endTimestamp = new Date(`${endDate}T23:59:59`).getTime();
         if (tripDate > endTimestamp) return false;
       }
-
       return true;
     });
   }, [enrichedTrips, selectedCategory, selectedBoxId, searchText, startDate, endDate]);
@@ -138,7 +168,7 @@ export default function App() {
       await saveTripsToSupabase(enrichedTrips);
       setSaveMessage('Viaggi salvati con successo su Supabase! 🎉');
     } catch (err) {
-      setSaveMessage('Errore durante il salvataggio su Supabase.');
+      setSaveMessage('Errore durante il salvataggio su Supabase. Verifica le policy RLS o la connessione.');
     } finally {
       setIsSaving(false);
     }
@@ -165,7 +195,7 @@ export default function App() {
                 disabled={isSaving}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition disabled:opacity-50 cursor-pointer"
               >
-                {isSaving ? 'Salvataggio...' : 'Salva su Supabase'}
+                {isSaving ? 'Salvataggio...' : 'Salva in Cloud'}
               </button>
             )}
           </div>
@@ -173,6 +203,12 @@ export default function App() {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 space-y-6">
+        {isLoadingDb && (
+          <div className="p-3 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-medium text-center">
+            Sincronizzazione dati con Supabase in corso...
+          </div>
+        )}
+
         {saveMessage && (
           <div className={`p-4 rounded-xl text-sm font-medium ${saveMessage.includes('successo') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'}`}>
             {saveMessage}
@@ -182,8 +218,8 @@ export default function App() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
             <div>
-              <h2 className="text-base font-bold text-slate-800 mb-1">Importa Viaggi (Modalità Append)</h2>
-              <p className="text-xs text-slate-400 mb-4">Carica più file CSV in sequenza senza perdere i dati esistenti.</p>
+              <h2 className="text-base font-bold text-slate-800 mb-1">Importa Viaggi</h2>
+              <p className="text-xs text-slate-400 mb-4">Carica file CSV senza perdere i dati esistenti.</p>
             </div>
             <TripCsvUploader onImportParsed={handleImportParsed} />
           </div>

@@ -15,6 +15,7 @@ export interface Trip {
   arrival_time: string;
   distance_km: number;
   average_consumption_l_100km: number;
+  consumption_unit?: 'l/100km' | 'l/km';
   category: string;
   calculated_cost?: number;
   refuel_box_id?: string;             
