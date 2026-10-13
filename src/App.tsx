@@ -7,6 +7,8 @@ import { RefuelBoxList } from './features/refuels/components/RefuelBoxList';
 import { TripFilters } from './features/trips/components/TripFilters';
 import { TripManualForm } from './features/trips/components/TripManualForm';
 import { enrichTripsWithCosts } from './features/trips/services/tripMatchingService';
+import { supabase } from './shared/utils/supabaseClient';
+import Login from './components/Login';
 import { 
   fetchTripsFromSupabase, 
   fetchRefuelsFromSupabase, 
@@ -15,6 +17,10 @@ import {
 } from './features/trips/services/tripService';
 
 export default function App() {
+  // 1. TUTTI GLI HOOK VANNO DICHIARATI QUI IN CIMA, SENZA MAI ESSERE INTERROTTI DA IF
+  const [session, setSession] = useState<any>(null);
+  const [loadingSession, setLoadingSession] = useState<boolean>(true);
+
   const [trips, setTrips] = useState<Trip[]>([]);
   const [refuelBoxes, setRefuelBoxes] = useState<RefuelBox[]>([
     {
@@ -26,7 +32,6 @@ export default function App() {
   ]);
   const [categories] = useState(DEFAULT_CATEGORIES);
   
-  // Stati Filtri Avanzati
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedBoxId, setSelectedBoxId] = useState<string>('ALL');
   const [searchText, setSearchText] = useState<string>('');
@@ -38,8 +43,24 @@ export default function App() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isLoadingDb, setIsLoadingDb] = useState<boolean>(true);
 
-  // FETCH INIZIALE ALLO START: Collegamento a Supabase per recuperare dati salvati
+  // GESTIONE SESSIONE AUTH
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoadingSession(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // FETCH INIZIALE ALLO START
+  useEffect(() => {
+    if (!session) return;
+
     async function loadDataFromCloud() {
       setIsLoadingDb(true);
       try {
@@ -60,7 +81,63 @@ export default function App() {
     }
 
     loadDataFromCloud();
-  }, []);
+  }, [session]);
+
+  const enrichedTrips = useMemo(() => {
+    return enrichTripsWithCosts(trips, refuelBoxes);
+  }, [trips, refuelBoxes]);
+
+  const uniqueCategories = useMemo(() => {
+    const set = new Set(trips.map((t) => t.category));
+    return Array.from(set);
+  }, [trips]);
+
+  const filteredTrips = useMemo(() => {
+    return enrichedTrips.filter((trip) => {
+      if (selectedCategory !== 'ALL' && trip.category !== selectedCategory) return false;
+      if (selectedBoxId !== 'ALL') {
+        const tripBoxId = trip.refuel_box_id || trip.matchedRefuelBox?.id;
+        if (tripBoxId !== selectedBoxId) return false;
+      }
+      if (searchText.trim() !== '') {
+        const query = searchText.toLowerCase();
+        const matchDep = trip.departure_address.toLowerCase().includes(query);
+        const matchArr = trip.arrival_address.toLowerCase().includes(query);
+        if (!matchDep && !matchArr) return false;
+      }
+      if (startDate) {
+        const tripDate = new Date(trip.departure_time).getTime();
+        const startTimestamp = new Date(`${startDate}T00:00:00`).getTime();
+        if (tripDate < startTimestamp) return false;
+      }
+      if (endDate) {
+        const tripDate = new Date(trip.departure_time).getTime();
+        const endTimestamp = new Date(`${endDate}T23:59:59`).getTime();
+        if (tripDate > endTimestamp) return false;
+      }
+      return true;
+    });
+  }, [enrichedTrips, selectedCategory, selectedBoxId, searchText, startDate, endDate]);
+
+  const { totalCost, totalKm } = useMemo(() => {
+    return filteredTrips.reduce(
+      (acc, trip) => {
+        acc.totalCost += trip.calculated_cost || 0;
+        acc.totalKm += trip.distance_km || 0;
+        return acc;
+      },
+      { totalCost: 0, totalKm: 0 }
+    );
+  }, [filteredTrips]);
+
+  // 2. I CONTROLLI CONDIZIONALI VANNO FATTI ORA, DOPO TUTTI GLI HOOK SOPRA
+  if (loadingSession) {
+    return <div className="flex justify-center items-center h-screen bg-slate-100 text-xs font-medium text-slate-500">Verifica sessione in corso...</div>;
+  }
+
+  if (!session) {
+    return <Login onLoginSuccess={(user) => setSession({ user })} />;
+  }
 
   const handleImportParsed = (parsedTrips: Trip[]) => {
     setTrips((prevTrips) => [...prevTrips, ...parsedTrips]);
@@ -113,53 +190,6 @@ export default function App() {
     );
   };
 
-  const enrichedTrips = useMemo(() => {
-    return enrichTripsWithCosts(trips, refuelBoxes);
-  }, [trips, refuelBoxes]);
-
-  const uniqueCategories = useMemo(() => {
-    const set = new Set(trips.map((t) => t.category));
-    return Array.from(set);
-  }, [trips]);
-
-  const filteredTrips = useMemo(() => {
-    return enrichedTrips.filter((trip) => {
-      if (selectedCategory !== 'ALL' && trip.category !== selectedCategory) return false;
-      if (selectedBoxId !== 'ALL') {
-        const tripBoxId = trip.refuel_box_id || trip.matchedRefuelBox?.id;
-        if (tripBoxId !== selectedBoxId) return false;
-      }
-      if (searchText.trim() !== '') {
-        const query = searchText.toLowerCase();
-        const matchDep = trip.departure_address.toLowerCase().includes(query);
-        const matchArr = trip.arrival_address.toLowerCase().includes(query);
-        if (!matchDep && !matchArr) return false;
-      }
-      if (startDate) {
-        const tripDate = new Date(trip.departure_time).getTime();
-        const startTimestamp = new Date(`${startDate}T00:00:00`).getTime();
-        if (tripDate < startTimestamp) return false;
-      }
-      if (endDate) {
-        const tripDate = new Date(trip.departure_time).getTime();
-        const endTimestamp = new Date(`${endDate}T23:59:59`).getTime();
-        if (tripDate > endTimestamp) return false;
-      }
-      return true;
-    });
-  }, [enrichedTrips, selectedCategory, selectedBoxId, searchText, startDate, endDate]);
-
-  const { totalCost, totalKm } = useMemo(() => {
-    return filteredTrips.reduce(
-      (acc, trip) => {
-        acc.totalCost += trip.calculated_cost || 0;
-        acc.totalKm += trip.distance_km || 0;
-        return acc;
-      },
-      { totalCost: 0, totalKm: 0 }
-    );
-  }, [filteredTrips]);
-
   const handleSaveToDatabase = async () => {
     if (trips.length === 0) return;
     setIsSaving(true);
@@ -198,6 +228,13 @@ export default function App() {
                 {isSaving ? 'Salvataggio...' : 'Salva in Cloud'}
               </button>
             )}
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg transition cursor-pointer"
+              title="Esci dall'account"
+            >
+              Esci
+            </button>
           </div>
         </div>
       </header>
@@ -271,7 +308,6 @@ export default function App() {
         </section>
       </main>
 
-      {/* Modale Inserimento Manuale */}
       {isManualModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <TripManualForm
