@@ -11,7 +11,13 @@ interface RefuelBoxListProps {
 export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAddRefuelBox, onUpdateRefuelBox }) => {
   const [price, setPrice] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const currentTimeStr = today.toTimeString().slice(0, 5); // es. "14:30"
+
+  const [date, setDate] = useState<string>(todayStr);
+  const [time, setTime] = useState<string>(currentTimeStr);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -19,23 +25,25 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
     const parsedPrice = parseFloat(price.replace(',', '.'));
     if (isNaN(parsedPrice) || parsedPrice <= 0) return;
 
+    // Combiniamo data e ora in formato ISO
+    const timePart = time ? time : '00:00';
+    const combinedDateTime = new Date(`${date}T${timePart}:00`).toISOString();
+
     if (editingId) {
-      // Modifica box esistente
       const existing = refuelBoxes.find(b => b.id === editingId);
       if (existing) {
         onUpdateRefuelBox({
           ...existing,
           fuel_price_per_liter: parsedPrice,
           notes: notes || existing.notes,
-          refuel_date: new Date(date).toISOString(),
+          refuel_date: combinedDateTime,
         });
       }
       setEditingId(null);
     } else {
-      // Nuovo box
       const newBox: RefuelBox = {
         id: crypto.randomUUID(),
-        refuel_date: new Date(date).toISOString(),
+        refuel_date: combinedDateTime,
         fuel_price_per_liter: parsedPrice,
         notes: notes || 'Rifornimento standard',
       };
@@ -44,14 +52,18 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
 
     setPrice('');
     setNotes('');
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(todayStr);
+    setTime(currentTimeStr);
   };
 
   const startEdit = (box: RefuelBox) => {
     setEditingId(box.id);
     setPrice(String(box.fuel_price_per_liter));
     setNotes(box.notes || '');
-    setDate(box.refuel_date.split('T')[0]);
+    
+    const d = new Date(box.refuel_date);
+    setDate(d.toISOString().split('T')[0]);
+    setTime(d.toTimeString().slice(0, 5));
   };
 
   return (
@@ -64,46 +76,60 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
           </span>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <p className="text-xs font-bold text-slate-700">{editingId ? 'Modifica Box Rifornimento' : 'Nuovo Box Rifornimento'}</p>
-          <div className="grid grid-cols-3 gap-2">
+        <form onSubmit={handleSubmit} className="space-y-3 mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+          <p className="font-bold text-slate-700">{editingId ? 'Modifica Box Rifornimento' : 'Nuovo Box Rifornimento'}</p>
+          
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Nome / Note *</label>
+            <input
+              type="text"
+              placeholder="es. Eni Fisciano"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Nome / Note</label>
-              <input
-                type="text"
-                placeholder="es. Eni"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Data</label>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Data *</label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Prezzo (€/l)</label>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Ora *</label>
               <input
-                type="text"
-                placeholder="1.859"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               />
             </div>
           </div>
-          <div className="flex space-x-2">
+
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Prezzo (€/l) *</label>
+            <input
+              type="text"
+              placeholder="1.859"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="w-full px-2 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+              required
+            />
+          </div>
+
+          <div className="flex space-x-2 pt-1">
             <button
               type="submit"
-              className="flex-1 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-sm transition cursor-pointer"
+              className="flex-1 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg shadow-sm transition cursor-pointer"
             >
               {editingId ? 'Salva Modifiche' : 'Aggiungi Box'}
             </button>
@@ -111,7 +137,7 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
               <button
                 type="button"
                 onClick={() => { setEditingId(null); setPrice(''); setNotes(''); }}
-                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg transition"
+                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition"
               >
                 Annulla
               </button>
@@ -120,26 +146,31 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
         </form>
       </div>
 
-      <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-        {refuelBoxes.map((box) => (
-          <div key={box.id} className="p-3 bg-white rounded-lg border border-slate-200 flex justify-between items-center text-sm shadow-2xs">
-            <div>
-              <span className="font-semibold text-slate-900 block text-xs">{box.notes}</span>
-              <span className="text-[11px] text-slate-400">{new Date(box.refuel_date).toLocaleDateString()}</span>
+      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+        {refuelBoxes.map((box) => {
+          const d = new Date(box.refuel_date);
+          const formattedDateTime = `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+          return (
+            <div key={box.id} className="p-3 bg-white rounded-lg border border-slate-200 flex justify-between items-center text-sm shadow-2xs">
+              <div>
+                <span className="font-semibold text-slate-900 block text-xs">{box.notes}</span>
+                <span className="text-[10px] text-slate-400">🕒 {formattedDateTime}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="font-bold text-emerald-600 text-sm">
+                  {formatCurrency(box.fuel_price_per_liter)}<span className="text-xs text-slate-400 font-normal">/l</span>
+                </span>
+                <button
+                  onClick={() => startEdit(box)}
+                  className="text-xs text-indigo-600 hover:underline p-1 cursor-pointer"
+                >
+                  Modifica
+                </button>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="font-bold text-emerald-600 text-sm">
-                {formatCurrency(box.fuel_price_per_liter)}<span className="text-xs text-slate-400 font-normal">/l</span>
-              </span>
-              <button
-                onClick={() => startEdit(box)}
-                className="text-xs text-indigo-600 hover:underline p-1 cursor-pointer"
-              >
-                Modifica
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
