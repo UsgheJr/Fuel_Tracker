@@ -51,7 +51,7 @@ export const TripManualForm: React.FC<TripManualFormProps> = ({
       arrival_address: arrival,
       arrival_time: combinedDateTime,
       distance_km: parsedDistance,
-      average_consumption_l_100km: parsedConsumption,
+      fuel_efficiency_kpl: parsedConsumption,
       consumption_unit: consumptionUnit, // Salviamo l'unità scelta
       category: category,
       refuel_box_id: refuelBoxId,

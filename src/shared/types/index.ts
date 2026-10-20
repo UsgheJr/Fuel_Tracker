@@ -15,8 +15,12 @@ export interface Trip {
   arrival_time: string;
   distance_km: number;
   fuel_efficiency_kpl?: number;
-  calculated_cost?: number;     
+  consumption_unit?: 'l/100km' | 'km/l' | 'l/km';
+  average_consumption_l_100km?: number;         
+  calculated_cost?: number;    
   category: string;
   refuel_box_id?: string;
   matchedRefuelBox?: RefuelBox;
+  isBoxDateMismatched?: boolean;
+  warningMessage?: string;
 }
