@@ -115,9 +115,9 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
         {refuelBoxes.map((box) => {
           const d = new Date(box.refuel_date);
           const formattedDateTime = `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-          const liters = box.spent_amount && box.fuel_price_per_liter 
-            ? (box.spent_amount / box.fuel_price_per_liter).toFixed(2) 
-            : box.liters_added?.toFixed(2);
+          const liters = box.spent_amount && box.price_per_liter 
+            ? (box.spent_amount / box.price_per_liter).toFixed(2) 
+            : box.liters?.toFixed(2);
 
           return (
             <div key={box.id} className={styles.listItem}>
@@ -133,7 +133,7 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
                     {box.spent_amount ? formatCurrency(box.spent_amount) : '-'}
                   </span>
                   <span className={styles.itemPricePerLiter}>
-                    {box.fuel_price_per_liter} €/l
+                    {box.price_per_liter} €/l
                   </span>
                 </div>
                 <button onClick={() => startEdit(box)} className={styles.editButton}>

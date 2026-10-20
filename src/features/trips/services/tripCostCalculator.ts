@@ -23,13 +23,19 @@ export function calculateTripCost(
 /**
  * Estrae il prezzo medio al litro dai rifornimenti recenti registrati dall'utente.
  */
-export function getAveragePricePerLiter(refuels: RefuelBox[]): number {
-  if (!refuels || refuels.length === 0) return 0;
+export function getAveragePricePerLiter(refuelBoxes: RefuelBox[]): number {
+  if (!refuelBoxes || refuelBoxes.length === 0) return 1.859; // Fallback di sicurezza
 
-  const totalCost = refuels.reduce((acc, curr) => acc + curr.spent_amount, 0);
-  const totalLiters = refuels.reduce((acc, curr) => acc + curr.liters, 0);
+  let totalSpent = 0;
+  let totalLiters = 0;
 
-  if (totalLiters === 0) return 0;
+  for (const box of refuelBoxes) {
+    const spent = box.spent_amount ?? (box.liters * box.price_per_liter);
+    totalSpent += spent;
+    totalLiters += box.liters ?? 0;
+  }
 
-  return Number((totalCost / totalLiters).toFixed(3));
+  if (totalLiters === 0) return 1.859;
+
+  return Number((totalSpent / totalLiters).toFixed(3));
 }

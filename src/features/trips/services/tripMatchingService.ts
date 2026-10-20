@@ -1,6 +1,7 @@
 // src/features/trips/services/tripMatchingService.ts
 
 import type { Trip, RefuelBox } from '../../../shared/types';
+import { normalizeToLitersPer100Km } from '../../../shared/utils/fuelConverter';
 
 export interface EnrichedTrip extends Trip {
   calculated_cost?: number;
@@ -33,9 +34,9 @@ function initializeTankBatches(sortedBoxes: RefuelBox[]): TankBatch[] {
   }
 
   return sortedBoxes.map(box => {
-    const price = box.fuel_price_per_liter ?? box.price_per_liter ?? FALLBACK_PRICE;
-    const spent = box.spent_amount ?? (box.liters * price);
-    const liters = spent > 0 && price > 0 ? spent / price : (box.liters || DEFAULT_TANK_LITERS);
+    const price = box.price_per_liter ?? FALLBACK_PRICE;
+    const spent = box.spent_amount ?? ((box.liters ?? DEFAULT_TANK_LITERS) * price);
+    const liters = spent > 0 && price > 0 ? spent / price : (box.liters ?? DEFAULT_TANK_LITERS);
 
     return {
       boxId: box.id,
@@ -55,9 +56,9 @@ function handleExplicitBoxMatch(
   const explicitBox = refuelBoxes.find(b => b.id === trip.refuel_box_id);
   if (!explicitBox) return null;
 
-  const kpl = trip.fuel_efficiency_kpl && trip.fuel_efficiency_kpl > 0 ? trip.fuel_efficiency_kpl : DEFAULT_KPL;
-  const litersNeeded = trip.distance_km / kpl;
-  const activePrice = explicitBox.fuel_price_per_liter ?? explicitBox.price_per_liter ?? FALLBACK_PRICE;
+  const litersPer100Km = normalizeToLitersPer100Km(trip.fuel_efficiency_kpl, trip.consumption_unit);
+  const litersNeeded = (trip.distance_km * litersPer100Km) / 100;  
+  const activePrice = explicitBox.price_per_liter ?? FALLBACK_PRICE;
   const totalCost = litersNeeded * activePrice;
 
   const boxTime = new Date(explicitBox.refuel_date).getTime();

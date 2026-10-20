@@ -46,16 +46,17 @@ export const TripManualForm: React.FC<TripManualFormProps> = ({
     const combinedDateTime = new Date(`${dateStr}T${timePart}:00`).toISOString();
 
     const newTrip: Trip = {
+      id: crypto.randomUUID(),
       departure_address: departure,
       departure_time: combinedDateTime,
       arrival_address: arrival,
       arrival_time: combinedDateTime,
       distance_km: parsedDistance,
       fuel_efficiency_kpl: parsedConsumption,
-      consumption_unit: consumptionUnit, // Salviamo l'unità scelta
+      consumption_unit: consumptionUnit, 
       category: category,
-      refuel_box_id: refuelBoxId,
-    };
+      refuel_box_id: refuelBoxId !== '' ? refuelBoxId : undefined,
+      };
 
     onAddTrip(newTrip);
     if (onClose) onClose();
@@ -166,7 +167,7 @@ export const TripManualForm: React.FC<TripManualFormProps> = ({
             >
               {sortedBoxes.map((box) => (
                 <option key={box.id} value={box.id}>
-                  {box.notes} ({box.fuel_price_per_liter} €/l)
+                  {box.notes} ({box.price_per_liter} €/l)
                 </option>
               ))}
             </select>
