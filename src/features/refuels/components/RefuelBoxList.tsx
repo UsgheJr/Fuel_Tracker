@@ -10,11 +10,12 @@ interface RefuelBoxListProps {
 
 export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAddRefuelBox, onUpdateRefuelBox }) => {
   const [price, setPrice] = useState<string>('');
+  const [spentAmount, setSpentAmount] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
-  const currentTimeStr = today.toTimeString().slice(0, 5); // es. "14:30"
+  const currentTimeStr = today.toTimeString().slice(0, 5);
 
   const [date, setDate] = useState<string>(todayStr);
   const [time, setTime] = useState<string>(currentTimeStr);
@@ -23,9 +24,10 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const parsedPrice = parseFloat(price.replace(',', '.'));
+    const parsedSpent = spentAmount ? parseFloat(spentAmount.replace(',', '.')) : undefined;
+
     if (isNaN(parsedPrice) || parsedPrice <= 0) return;
 
-    // Combiniamo data e ora in formato ISO
     const timePart = time ? time : '00:00';
     const combinedDateTime = new Date(`${date}T${timePart}:00`).toISOString();
 
@@ -35,6 +37,7 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
         onUpdateRefuelBox({
           ...existing,
           fuel_price_per_liter: parsedPrice,
+          spent_amount: parsedSpent,
           notes: notes || existing.notes,
           refuel_date: combinedDateTime,
         });
@@ -45,12 +48,14 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
         id: crypto.randomUUID(),
         refuel_date: combinedDateTime,
         fuel_price_per_liter: parsedPrice,
+        spent_amount: parsedSpent,
         notes: notes || 'Rifornimento standard',
       };
       onAddRefuelBox(newBox);
     }
 
     setPrice('');
+    setSpentAmount('');
     setNotes('');
     setDate(todayStr);
     setTime(currentTimeStr);
@@ -59,6 +64,7 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
   const startEdit = (box: RefuelBox) => {
     setEditingId(box.id);
     setPrice(String(box.fuel_price_per_liter));
+    setSpentAmount(box.spent_amount ? String(box.spent_amount) : '');
     setNotes(box.notes || '');
     
     const d = new Date(box.refuel_date);
@@ -70,7 +76,7 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between h-full">
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-bold text-slate-800">Box Rifornimenti & Prezzi</h3>
+          <h3 className="text-base font-bold text-slate-800">Box Rifornimenti & Prezzi (FIFO)</h3>
           <span className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium">
             {refuelBoxes.length} registrati
           </span>
@@ -108,22 +114,34 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-2 py-2 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Prezzo (€/l) *</label>
-            <input
-              type="text"
-              placeholder="1.859"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="w-full px-2 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-              required
-            />
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Spesa (€) (Es. 10)</label>
+              <input
+                type="text"
+                placeholder="10"
+                value={spentAmount}
+                onChange={(e) => setSpentAmount(e.target.value)}
+                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Prezzo (€/l) *</label>
+              <input
+                type="text"
+                placeholder="1.999"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              />
+            </div>
           </div>
 
           <div className="flex space-x-2 pt-1">
@@ -136,7 +154,7 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
             {editingId && (
               <button
                 type="button"
-                onClick={() => { setEditingId(null); setPrice(''); setNotes(''); }}
+                onClick={() => { setEditingId(null); setPrice(''); setSpentAmount(''); setNotes(''); }}
                 className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition"
               >
                 Annulla
@@ -150,16 +168,19 @@ export const RefuelBoxList: React.FC<RefuelBoxListProps> = ({ refuelBoxes, onAdd
         {refuelBoxes.map((box) => {
           const d = new Date(box.refuel_date);
           const formattedDateTime = `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+          const liters = box.spent_amount ? (box.spent_amount / box.fuel_price_per_liter).toFixed(2) : null;
 
           return (
             <div key={box.id} className="p-3 bg-white rounded-lg border border-slate-200 flex justify-between items-center text-sm shadow-2xs">
               <div>
                 <span className="font-semibold text-slate-900 block text-xs">{box.notes}</span>
-                <span className="text-[10px] text-slate-400">🕒 {formattedDateTime}</span>
+                <span className="text-[10px] text-slate-400">
+                  🕒 {formattedDateTime} {liters ? `• 💧 ${liters} litri` : ''}
+                </span>
               </div>
               <div className="flex items-center space-x-2">
                 <span className="font-bold text-emerald-600 text-sm">
-                  {formatCurrency(box.fuel_price_per_liter)}<span className="text-xs text-slate-400 font-normal">/l</span>
+                  {box.spent_amount ? formatCurrency(box.spent_amount) : `${box.fuel_price_per_liter} €/l`}
                 </span>
                 <button
                   onClick={() => startEdit(box)}

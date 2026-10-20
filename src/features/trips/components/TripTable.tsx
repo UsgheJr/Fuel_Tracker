@@ -5,19 +5,22 @@ import { formatCurrency, formatDate } from '../../../shared/utils/formatters';
 
 export interface EnrichedTrip extends Trip {
   matchedRefuelBox?: RefuelBox;
+  isBoxDateMismatched?: boolean;
+  warningMessage?: string;
 }
 
 interface TripTableProps {
   trips: EnrichedTrip[];
   refuelBoxes: RefuelBox[];
   categories: TripCategory[];
-  onDeleteTrip: (index: number) => void;
-  onDeleteMultiple: (indices: number[]) => void;
-  onUpdateCategory: (index: number, newCategory: string) => void;
-  onUpdateRefuelBoxAssignment: (index: number, boxId: string) => void;
+  onDeleteTrip: (tripId: string) => void;
+  onDeleteMultiple: (tripIds: string[]) => void;
+  onUpdateCategory: (tripId: string, newCategory: string) => void;
+  onUpdateRefuelBoxAssignment: (tripId: string, boxId: string) => void;
 }
 
-type SortField = 'departure_time' | 'departure_address' | 'arrival_address' | 'distance_km' | 'average_consumption_l_100km' | 'category' | 'calculated_cost';
+// Allineato a fuel_efficiency_kpl anziché average_consumption_l_100km
+type SortField = 'departure_time' | 'departure_address' | 'arrival_address' | 'distance_km' | 'fuel_efficiency_kpl' | 'category' | 'calculated_cost';
 type SortOrder = 'asc' | 'desc' | 'none';
 
 export const TripTable: React.FC<TripTableProps> = ({
@@ -29,7 +32,7 @@ export const TripTable: React.FC<TripTableProps> = ({
   onUpdateCategory,
   onUpdateRefuelBoxAssignment,
 }) => {
-  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sortField, setSortField] = useState<SortField>('departure_time');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
@@ -45,15 +48,14 @@ export const TripTable: React.FC<TripTableProps> = ({
   };
 
   const sortedTrips = useMemo(() => {
-    const indexedTrips = trips.map((trip, originalIndex) => ({ trip, originalIndex }));
-    if (sortOrder === 'none') return indexedTrips;
+    if (sortOrder === 'none') return trips;
 
-    return indexedTrips.sort((a, b) => {
-      let valA: any = a.trip[sortField];
-      let valB: any = b.trip[sortField];
+    return [...trips].sort((a, b) => {
+      let valA: any = a[sortField];
+      let valB: any = b[sortField];
 
-      if (valA === undefined) valA = '';
-      if (valB === undefined) valB = '';
+      if (valA === undefined || valA === null) valA = '';
+      if (valB === undefined || valB === null) valB = '';
 
       if (typeof valA === 'string' && typeof valB === 'string') {
         const comp = valA.localeCompare(valB);
@@ -68,15 +70,16 @@ export const TripTable: React.FC<TripTableProps> = ({
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIndices(sortedTrips.map(item => item.originalIndex));
+      setSelectedIds(sortedTrips.map(t => t.id).filter(Boolean) as string[]);
     } else {
-      setSelectedIndices([]);
+      setSelectedIds([]);
     }
   };
 
-  const handleSelectRow = (originalIndex: number) => {
-    setSelectedIndices(prev =>
-      prev.includes(originalIndex) ? prev.filter(i => i !== originalIndex) : [...prev, originalIndex]
+  const handleSelectRow = (tripId?: string) => {
+    if (!tripId) return;
+    setSelectedIds(prev =>
+      prev.includes(tripId) ? prev.filter(id => id !== tripId) : [...prev, tripId]
     );
   };
 
@@ -95,15 +98,15 @@ export const TripTable: React.FC<TripTableProps> = ({
 
   return (
     <div className="space-y-3">
-      {selectedIndices.length > 0 && (
+      {selectedIds.length > 0 && (
         <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-xl flex justify-between items-center px-4">
           <span className="text-xs font-semibold text-indigo-900">
-            {selectedIndices.length} viaggi selezionati
+            {selectedIds.length} viaggi selezionati
           </span>
           <button
             onClick={() => {
-              onDeleteMultiple(selectedIndices);
-              setSelectedIndices([]);
+              onDeleteMultiple(selectedIds);
+              setSelectedIds([]);
             }}
             className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg shadow-xs transition cursor-pointer"
           >
@@ -121,7 +124,7 @@ export const TripTable: React.FC<TripTableProps> = ({
                   <input
                     type="checkbox"
                     onChange={handleSelectAll}
-                    checked={selectedIndices.length === trips.length && trips.length > 0}
+                    checked={selectedIds.length === trips.length && trips.length > 0}
                     className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
                 </th>
@@ -148,17 +151,18 @@ export const TripTable: React.FC<TripTableProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {sortedTrips.map(({ trip, originalIndex }) => {
+              {sortedTrips.map((trip) => {
                 const currentCat = categories.find(c => c.label === trip.category);
                 const badgeColor = currentCat ? currentCat.color : 'bg-slate-100 text-slate-700 border-slate-200';
+                const tripId = trip.id || '';
 
                 return (
-                  <tr key={originalIndex} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={tripId || Math.random()} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-4 py-4">
                       <input
                         type="checkbox"
-                        checked={selectedIndices.includes(originalIndex)}
-                        onChange={() => handleSelectRow(originalIndex)}
+                        checked={selectedIds.includes(tripId)}
+                        onChange={() => handleSelectRow(tripId)}
                         className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
                     </td>
@@ -173,12 +177,11 @@ export const TripTable: React.FC<TripTableProps> = ({
                     </td>
                     <td className="px-4 py-4 text-slate-600 whitespace-nowrap">{trip.distance_km} km</td>
                     
-                    {/* Menu a tendina per cambiare box rifornimento direttamente in tabella */}
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-2">
                         <select
                           value={trip.refuel_box_id || trip.matchedRefuelBox?.id || ''}
-                          onChange={(e) => onUpdateRefuelBoxAssignment(originalIndex, e.target.value)}
+                          onChange={(e) => onUpdateRefuelBoxAssignment(tripId, e.target.value)}
                           className="text-xs font-medium bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                         >
                           {refuelBoxes.map((box) => (
@@ -201,7 +204,7 @@ export const TripTable: React.FC<TripTableProps> = ({
                     <td className="px-4 py-4 whitespace-nowrap">
                       <select
                         value={trip.category}
-                        onChange={(e) => onUpdateCategory(originalIndex, e.target.value)}
+                        onChange={(e) => onUpdatedCategoryWrapper(tripId, e.target.value)}
                         className={`text-xs font-semibold px-2 py-1 rounded-full border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 ${badgeColor}`}
                       >
                         {categories.map((cat) => (
@@ -214,7 +217,7 @@ export const TripTable: React.FC<TripTableProps> = ({
                     </td>
                     <td className="px-4 py-4 text-center whitespace-nowrap">
                       <button
-                        onClick={() => onDeleteTrip(originalIndex)}
+                        onClick={() => onDeleteTrip(tripId)}
                         title="Elimina viaggio"
                         className="p-1.5 text-slate-400 hover:text-rose-600 transition rounded-lg hover:bg-rose-50 cursor-pointer"
                       >
@@ -232,4 +235,8 @@ export const TripTable: React.FC<TripTableProps> = ({
       </div>
     </div>
   );
+
+  function onUpdatedCategoryWrapper(tripId: string, newCat: string) {
+    onUpdateCategory(tripId, newCat);
+  }
 };
