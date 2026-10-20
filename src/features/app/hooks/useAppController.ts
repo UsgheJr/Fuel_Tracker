@@ -5,8 +5,8 @@ import type { Trip, RefuelBox } from '../../../shared/types';
 import { DEFAULT_CATEGORIES } from '../../../shared/types/categories';
 import { enrichTripsWithCosts } from '../../trips/services/tripMatchingService';
 import { supabase } from '../../../database/supabaseClient';
-import { fetchTrips, upsertTrips } from '../../../database/repositories/tripRepositories';
-import { fetchRefuels, upsertRefuelBox } from '../../../database/repositories/refuelRepositories';
+import { fetchTrips, upsertTrips } from '../../../database/repositories/tripRepository';
+import { fetchRefuels, upsertRefuelBox } from '../../../database/repositories/refuelRepository';
 
 export function useAppController() {
   const [session, setSession] = useState<any>(null);
@@ -16,6 +16,7 @@ export function useAppController() {
   const [refuelBoxes, setRefuelBoxes] = useState<RefuelBox[]>([
     {
       id: 'default-box',
+      user_id: 'local-default', // Soddisfa il contratto di RefuelBox
       refuel_date: '2026-10-01T00:00:00.000Z',
       liters: 50,
       price_per_liter: 1.859,
@@ -36,7 +37,6 @@ export function useAppController() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isLoadingDb, setIsLoadingDb] = useState<boolean>(true);
 
-  // Gestione Sessione Auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -50,9 +50,8 @@ export function useAppController() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch Iniziale da Cloud
   useEffect(() => {
-    if (!session) return;
+    if (!session?.user?.id) return;
 
     async function loadDataFromCloud() {
       setIsLoadingDb(true);
@@ -90,7 +89,6 @@ export function useAppController() {
       }
       if (searchText.trim() !== '') {
         const query = searchText.toLowerCase();
-        // Fallback sicuro se le proprietà di indirizzo non sono presenti nell'interfaccia corrente
         const notesMatch = trip.notes?.toLowerCase().includes(query) || false;
         if (!notesMatch) return false;
       }
@@ -175,10 +173,10 @@ export function useAppController() {
     setIsSaving(true);
     setSaveMessage(null);
     try {
-      await await upsertTrips(enrichedTrips);
+      await upsertTrips(enrichedTrips);
       setSaveMessage('Viaggi salvati con successo su Supabase! 🎉');
     } catch (err) {
-      setSaveMessage('Errore durante il salvataggio su Supabase. Verifica le policy RLS o la connessione.');
+      setSaveMessage('Errore durante il salvataggio su Supabase.');
     } finally {
       setIsSaving(false);
     }

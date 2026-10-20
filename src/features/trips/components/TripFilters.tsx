@@ -99,7 +99,7 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
           >
             <option value="ALL">Tutti i box</option>
             {refuelBoxes.map((box) => (
-              <option key={box.id} value={box.id}>{box.notes} ({box.fuel_price_per_liter} €/l)</option>
+              <option key={box.id} value={box.id}>{box.notes} ({box.price_per_liter} €/l)</option>
             ))}
           </select>
         </div>

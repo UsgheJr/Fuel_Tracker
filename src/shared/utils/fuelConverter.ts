@@ -14,7 +14,7 @@ export function normalizeToLitersPer100Km(
   if (!value || value <= 0) return DEFAULT_LITERS_PER_100KM;
 
   // Se l'utente ha inserito km/l (es. 15 km/l), lo convertiamo in l/100km -> (100 / 15) = 6.67 l/100km
-  if (unit === 'l/km') {
+  if (unit === 'l/km' || unit === 'km/l') {
     return Number((100 / value).toFixed(2));
   }
 

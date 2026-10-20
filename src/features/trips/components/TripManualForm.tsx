@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
-import type { Trip, RefuelBox } from '../../../shared/types';
+// src/features/trips/components/TripManualForm.tsx
+
+import React from 'react';
+import { useTripManualForm } from '../hooks/useTripMaualForm';
+import { tripManualFormStyles as styles } from '../styles/tripManualFormStyles';
+import type { Trip, RefuelBox, ConsumptionUnit } from '../../../shared/types';
 import type { TripCategory } from '../../../shared/types/categories';
 
 interface TripManualFormProps {
   refuelBoxes: RefuelBox[];
   categories: TripCategory[];
+  currentUserId: string;
   onAddTrip: (trip: Trip) => void;
   onClose?: () => void;
 }
@@ -12,197 +17,160 @@ interface TripManualFormProps {
 export const TripManualForm: React.FC<TripManualFormProps> = ({
   refuelBoxes,
   categories,
+  currentUserId,
   onAddTrip,
   onClose,
 }) => {
-  const sortedBoxes = [...refuelBoxes].sort(
-    (a, b) => new Date(b.refuel_date).getTime() - new Date(a.refuel_date).getTime()
-  );
-  const defaultBoxId = sortedBoxes.length > 0 ? sortedBoxes[0].id : '';
-
-  const [departure, setDeparture] = useState('');
-  const [arrival, setArrival] = useState('');
-  const [refuelBoxId, setRefuelBoxId] = useState(defaultBoxId);
-  
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [dateStr, setDateStr] = useState(todayStr);
-  const [timeStr, setTimeStr] = useState('12:00');
-
-  const [distance, setDistance] = useState('');
-  const [consumption, setConsumption] = useState('5.5');
-  const [consumptionUnit, setConsumptionUnit] = useState<'l/100km' | 'l/km'>('l/100km');
-  const [category, setCategory] = useState(categories[0]?.label || 'Personale');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!departure || !arrival || !distance || !refuelBoxId) return;
-
-    const parsedDistance = parseFloat(distance.replace(',', '.'));
-    const parsedConsumption = parseFloat(consumption.replace(',', '.'));
-
-    if (isNaN(parsedDistance) || isNaN(parsedConsumption)) return;
-
-    const timePart = timeStr ? timeStr : '00:00';
-    const combinedDateTime = new Date(`${dateStr}T${timePart}:00`).toISOString();
-
-    const newTrip: Trip = {
-      id: crypto.randomUUID(),
-      departure_address: departure,
-      departure_time: combinedDateTime,
-      arrival_address: arrival,
-      arrival_time: combinedDateTime,
-      distance_km: parsedDistance,
-      fuel_efficiency_kpl: parsedConsumption,
-      consumption_unit: consumptionUnit, 
-      category: category,
-      refuel_box_id: refuelBoxId !== '' ? refuelBoxId : undefined,
-      };
-
-    onAddTrip(newTrip);
-    if (onClose) onClose();
-  };
+  const {
+    date,
+    setDate,
+    time,
+    setTime,
+    distanceKm,
+    setDistanceKm,
+    consumption,
+    setConsumption,
+    consumptionUnit,
+    setConsumptionUnit,
+    category,
+    setCategory,
+    refuelBoxId,
+    setRefuelBoxId,
+    notes,
+    setNotes,
+    loading,
+    error,
+    success,
+    handleSubmit,
+  } = useTripManualForm({
+    refuelBoxes,
+    categories,
+    currentUserId,
+    onAddTrip,
+    onClose,
+  });
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200 w-full max-w-lg mx-auto">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold text-slate-800">Aggiungi Viaggio Manualmente</h3>
-        {onClose && (
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer">
-            ✕
-          </button>
-        )}
-      </div>
+    <div className={styles.wrapper}>
+      <h3 className={styles.title}>Inserisci Viaggio Manuale</h3>
 
-      <form onSubmit={handleSubmit} className="space-y-4 text-sm">
-        <div>
-          <label className="block font-semibold text-slate-700 mb-1">Partenza *</label>
-          <input
-            type="text"
-            placeholder="es. Via Roma 1, Salerno"
-            value={departure}
-            onChange={(e) => setDeparture(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-            required
-          />
-        </div>
+      {success && <div className={styles.successMessage}>Viaggio aggiunto con successo!</div>}
+      {error && <div className={styles.errorMessage}>{error}</div>}
 
-        <div>
-          <label className="block font-semibold text-slate-700 mb-1">Destinazione *</label>
-          <input
-            type="text"
-            placeholder="es. Via Milano 10, Napoli"
-            value={arrival}
-            onChange={(e) => setArrival(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+      <form onSubmit={handleSubmit}>
+        <div className={styles.rowGrid}>
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Data (Giorno) *</label>
+            <label className={styles.label}>Data</label>
             <input
               type="date"
-              value={dateStr}
-              onChange={(e) => setDateStr(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={styles.input}
               required
             />
           </div>
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Ora (Opzionale)</label>
+            <label className={styles.label}>Orario</label>
             <input
               type="time"
-              value={timeStr}
-              onChange={(e) => setTimeStr(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className={styles.input}
+              required
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className={styles.fieldGroup}>
+          <label className={styles.label}>Distanza (km)</label>
+          <input
+            type="number"
+            step="0.1"
+            placeholder="es. 45.5"
+            value={distanceKm}
+            onChange={(e) => setDistanceKm(e.target.value)}
+            className={styles.input}
+            required
+          />
+        </div>
+
+        <div className={styles.rowGrid}>
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Chilometri *</label>
+            <label className={styles.label}>Consumo Medio</label>
             <input
-              type="text"
-              placeholder="es. 34.5"
-              value={distance}
-              onChange={(e) => setDistance(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              required
-            />
-          </div>
-          <div>
-            <label className="block font-semibold text-slate-700 mb-1">Consumo *</label>
-            <input
-              type="text"
-              placeholder="es. 5.5"
+              type="number"
+              step="0.1"
+              placeholder="es. 6.5"
               value={consumption}
               onChange={(e) => setConsumption(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              required
+              className={styles.input}
             />
           </div>
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Unità</label>
+            <label className={styles.label}>Unità</label>
             <select
               value={consumptionUnit}
-              onChange={(e) => setConsumptionUnit(e.target.value as 'l/100km' | 'l/km')}
-              className="w-full px-2 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+              onChange={(e) => setConsumptionUnit(e.target.value as ConsumptionUnit)}
+              className={styles.select}
             >
               <option value="l/100km">l/100km</option>
-              <option value="l/km">l/km</option>
+              <option value="km/l">km/l</option>
             </select>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className={styles.rowGrid}>
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Box di Riferimento *</label>
+            <label className={styles.label}>Categoria</label>
             <select
-              value={refuelBoxId}
-              onChange={(e) => setRefuelBoxId(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-              required
+              value={category as string} 
+              onChange={(e) => setCategory(e.target.value as TripCategory)}
+              className={styles.select}
             >
-              {sortedBoxes.map((box) => (
-                <option key={box.id} value={box.id}>
-                  {box.notes} ({box.price_per_liter} €/l)
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
                 </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Categoria (Opzionale)</label>
+            <label className={styles.label}>Rifornimento Collegato</label>
             <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+              value={refuelBoxId}
+              onChange={(e) => setRefuelBoxId(e.target.value)}
+              className={styles.select}
             >
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.label}>{cat.label}</option>
+              <option value="">(Automatico / FIFO)</option>
+              {refuelBoxes.map((box) => (
+                <option key={box.id} value={box.id}>
+                  {box.notes || box.refuel_date} ({box.price_per_liter} €/L)
+                </option>
               ))}
             </select>
           </div>
         </div>
 
-        <div className="flex justify-end space-x-2 pt-2">
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition cursor-pointer"
-            >
-              Annulla
-            </button>
-          )}
-          <button
-            type="submit"
-            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-sm transition cursor-pointer"
-          >
-            Salva Viaggio
-          </button>
+        <div className={styles.fieldGroup}>
+          <label className={styles.label}>Note (Opzionale)</label>
+          <input
+            type="text"
+            placeholder="es. Trasferta cliente"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className={styles.input}
+          />
         </div>
+
+        <button type="submit" disabled={loading} className={styles.submitButton}>
+          {loading ? 'Salvataggio...' : 'Salva Viaggio'}
+        </button>
+
+        {onClose && (
+          <button type="button" onClick={onClose} className={styles.cancelButton}>
+            Annulla
+          </button>
+        )}
       </form>
     </div>
   );

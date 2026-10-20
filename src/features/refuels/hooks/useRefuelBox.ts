@@ -1,13 +1,16 @@
+// src/features/refuels/hooks/useRefuelBox.ts
+
 import { useState } from 'react';
 import type { RefuelBox } from '../../../shared/types/index';
 
 interface UseRefuelBoxProps {
   refuelBoxes: RefuelBox[];
+  currentUserId: string;
   onAddRefuelBox: (box: RefuelBox) => void;
   onUpdateRefuelBox: (updatedBox: RefuelBox) => void;
 }
 
-export function useRefuelBox({ refuelBoxes, onAddRefuelBox, onUpdateRefuelBox }: UseRefuelBoxProps) {
+export function useRefuelBox({ refuelBoxes, currentUserId, onAddRefuelBox, onUpdateRefuelBox }: UseRefuelBoxProps) {
   const [price, setPrice] = useState<string>('');
   const [spentAmount, setSpentAmount] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
@@ -22,12 +25,14 @@ export function useRefuelBox({ refuelBoxes, onAddRefuelBox, onUpdateRefuelBox }:
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const parsedPrice = parseFloat(price.replace(',', '.'));
-    const parsedSpent = spentAmount ? parseFloat(spentAmount.replace(',', '.')) : undefined;
+    const parsedPrice = parseFloat(price.replace(',', '.')) || 0;
+    const parsedSpent = spentAmount ? parseFloat(spentAmount.replace(',', '.')) : 0;
 
-    if (isNaN(parsedPrice) || parsedPrice <= 0) return;
+    if (parsedPrice <= 0) return;
 
-    const calculatedLiters = parsedSpent && parsedSpent > 0 ? parsedSpent / parsedPrice : undefined;
+    // Calcolo sicuro dei litri con fallback numerico (evita 'undefined')
+    const calculatedLiters = parsedSpent > 0 ? Number((parsedSpent / parsedPrice).toFixed(3)) : 0;
+    
     const timePart = time ? time : '00:00';
     const combinedDateTime = new Date(`${date}T${timePart}:00`).toISOString();
 
@@ -47,6 +52,7 @@ export function useRefuelBox({ refuelBoxes, onAddRefuelBox, onUpdateRefuelBox }:
     } else {
       const newBox: RefuelBox = {
         id: crypto.randomUUID(),
+        user_id: currentUserId, // Obbligatorio per rispettare l'interfaccia RefuelBox
         refuel_date: combinedDateTime,
         price_per_liter: parsedPrice,
         spent_amount: parsedSpent,

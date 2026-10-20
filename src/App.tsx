@@ -114,11 +114,12 @@ export default function App() {
           </div>
 
           <div>
-            <RefuelBoxList
-              refuelBoxes={refuelBoxes}
-              onAddRefuelBox={handleAddRefuelBox}
-              onUpdateRefuelBox={handleUpdateRefuelBox}
-            />
+          <RefuelBoxList
+            refuelBoxes={refuelBoxes}
+            currentUserId={session?.user?.id ?? 'local-user-id'}
+            onAddRefuelBox={handleAddRefuelBox}
+            onUpdateRefuelBox={handleUpdateRefuelBox}
+          />
           </div>
         </div>
 
@@ -167,6 +168,7 @@ export default function App() {
             categories={categories}
             onAddTrip={handleAddManualTrip}
             onClose={() => setIsManualModalOpen(false)}
+            currentUserId={session?.user?.id ?? 'local-user-id'}
           />
         </div>
       )}
