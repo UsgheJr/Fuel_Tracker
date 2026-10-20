@@ -1,21 +1,35 @@
+// src/features/trips/services/tripCostCalculator.ts
+
+import type { RefuelBox } from '../../../shared/types';
+
+/**
+ * Calcola il costo stimato di un viaggio in base alla distanza e al prezzo medio del carburante.
+ */
 export function calculateTripCost(
   distanceKm: number,
-  consumption: number,
-  fuelPricePerLiter: number,
-  unit: 'l/100km' | 'l/km' = 'l/100km'
+  averageConsumptionLitersPer100Km: number,
+  averagePricePerLiter: number
 ): number {
-  let litersConsumed = 0;
-
-  if (unit === 'l/km') {
-    // Calcolo diretto: litri consumati = distanza in km * consumo in l/km
-    litersConsumed = distanceKm * consumption;
-  } else {
-    // Calcolo standard: litri consumati = (consumo / 100) * distanza in km
-    litersConsumed = (consumption / 100) * distanceKm;
+  if (distanceKm <= 0 || averageConsumptionLitersPer100Km <= 0 || averagePricePerLiter <= 0) {
+    return 0;
   }
 
-  const totalCost = litersConsumed * fuelPricePerLiter;
+  const litersNeeded = (distanceKm * averageConsumptionLitersPer100Km) / 100;
+  const totalCost = litersNeeded * averagePricePerLiter;
   
-  // Arrotondamento a 3 cifre per eccesso
-  return Math.ceil(totalCost * 1000) / 1000;
+  return Number(totalCost.toFixed(2));
+}
+
+/**
+ * Estrae il prezzo medio al litro dai rifornimenti recenti registrati dall'utente.
+ */
+export function getAveragePricePerLiter(refuels: RefuelBox[]): number {
+  if (!refuels || refuels.length === 0) return 0;
+
+  const totalCost = refuels.reduce((acc, curr) => acc + curr.spent_amount, 0);
+  const totalLiters = refuels.reduce((acc, curr) => acc + curr.liters, 0);
+
+  if (totalLiters === 0) return 0;
+
+  return Number((totalCost / totalLiters).toFixed(3));
 }

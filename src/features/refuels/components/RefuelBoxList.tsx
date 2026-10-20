@@ -2,7 +2,7 @@ import React from 'react';
 import type { RefuelBox } from '../../../shared/types';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import { useRefuelBox } from '../../hooks/useRefuelBox';
-import { refuelBoxStyles as styles } from '../../styles/refuelBoxStyles';
+import { refuelBoxStyles as styles } from '../styles/refuelBoxStyles';
 
 interface RefuelBoxListProps {
   refuelBoxes: RefuelBox[];
