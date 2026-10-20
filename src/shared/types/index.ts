@@ -17,11 +17,10 @@ export interface Trip {
 
 export interface RefuelBox {
   id: string;
-  user_id: string;
   refuel_date: string;
-  liters: number;
+  liters?: number;
   price_per_liter: number;
-  spent_amount: number;
+  spent_amount?: number;
   notes?: string;
   created_at?: string;
 }

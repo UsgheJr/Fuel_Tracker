@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../shared/utils/supabaseClient';
+import { supabase } from '../../../database/supabaseClient';
 
 interface LoginProps {
   onLoginSuccess: (user: any) => void;

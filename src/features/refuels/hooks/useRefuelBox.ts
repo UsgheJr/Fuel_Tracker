@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { RefuelBox } from '../../shared/types/index';
+import type { RefuelBox } from '../../../shared/types/index';
 
 interface UseRefuelBoxProps {
   refuelBoxes: RefuelBox[];
@@ -36,9 +36,9 @@ export function useRefuelBox({ refuelBoxes, onAddRefuelBox, onUpdateRefuelBox }:
       if (existing) {
         onUpdateRefuelBox({
           ...existing,
-          fuel_price_per_liter: parsedPrice,
+          price_per_liter: parsedPrice,
           spent_amount: parsedSpent,
-          liters_added: calculatedLiters,
+          liters: calculatedLiters,
           notes: notes || existing.notes,
           refuel_date: combinedDateTime,
         });
@@ -48,9 +48,9 @@ export function useRefuelBox({ refuelBoxes, onAddRefuelBox, onUpdateRefuelBox }:
       const newBox: RefuelBox = {
         id: crypto.randomUUID(),
         refuel_date: combinedDateTime,
-        fuel_price_per_liter: parsedPrice,
+        price_per_liter: parsedPrice,
         spent_amount: parsedSpent,
-        liters_added: calculatedLiters,
+        liters: calculatedLiters,
         notes: notes || 'Rifornimento standard',
       };
       onAddRefuelBox(newBox);
@@ -70,7 +70,7 @@ export function useRefuelBox({ refuelBoxes, onAddRefuelBox, onUpdateRefuelBox }:
 
   const startEdit = (box: RefuelBox) => {
     setEditingId(box.id);
-    setPrice(String(box.fuel_price_per_liter));
+    setPrice(String(box.price_per_liter));
     setSpentAmount(box.spent_amount ? String(box.spent_amount) : '');
     setNotes(box.notes || '');
     

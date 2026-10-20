@@ -1,6 +1,6 @@
 // src/features/trips/services/tripService.ts
 
-import { supabase } from '../../../shared/utils/supabaseClient';
+import { supabase } from '../../../database/supabaseClient';
 import type { Trip, TripInput } from '../../../shared/types';
 
 export async function fetchUserTrips(userId: string): Promise<Trip[]> {

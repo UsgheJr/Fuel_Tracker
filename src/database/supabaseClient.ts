@@ -1,4 +1,4 @@
-// src/shared/utils/supabaseClient.ts
+// src/database/supabaseClient.ts
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -7,7 +7,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
-    'Mancano le variabili d’ambiente VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY.'
+    'Variabili d’ambiente VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY mancanti nel client Supabase.'
   );
 }
 
