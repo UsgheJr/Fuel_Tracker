@@ -1,5 +1,3 @@
-// src/features/trips/services/tripMatchingService.ts
-
 import type { Trip, RefuelBox } from '../../../shared/types';
 import { normalizeToLitersPer100Km } from '../../../shared/utils/fuelConverter';
 
@@ -20,7 +18,7 @@ interface TankBatch {
 
 const FALLBACK_PRICE = 1.859;
 const DEFAULT_KPL = 15;
-const DEFAULT_TANK_LITERS = 50.0;
+const DEFAULT_TANK_LITERS = 1;
 
 function initializeTankBatches(sortedBoxes: RefuelBox[]): TankBatch[] {
   if (sortedBoxes.length === 0) {
@@ -37,7 +35,6 @@ function initializeTankBatches(sortedBoxes: RefuelBox[]): TankBatch[] {
     const price = box.price_per_liter ?? FALLBACK_PRICE;
     const spent = box.spent_amount ?? ((box.liters ?? DEFAULT_TANK_LITERS) * price);
     const liters = spent > 0 && price > 0 ? spent / price : (box.liters ?? DEFAULT_TANK_LITERS);
-
     return {
       boxId: box.id,
       boxNotes: box.notes || 'Rifornimento',
@@ -57,14 +54,14 @@ function handleExplicitBoxMatch(
   if (!explicitBox) return null;
 
   const litersPer100Km = normalizeToLitersPer100Km(trip.fuel_efficiency_kpl, trip.consumption_unit);
-  const litersNeeded = (trip.distance_km * litersPer100Km) / 100;  
+  const litersNeeded = (trip.distance_km * litersPer100Km) / 100;
   const activePrice = explicitBox.price_per_liter ?? FALLBACK_PRICE;
   const totalCost = litersNeeded * activePrice;
-
   const boxTime = new Date(explicitBox.refuel_date).getTime();
   const isMismatch = tripTime < boxTime;
+  
   const warningMsg = isMismatch 
-    ? `Incongruenza: Il box "${explicitBox.notes || 'Rifornimento'}" è del ${new Date(explicitBox.refuel_date).toLocaleDateString()}, successivo alla data del viaggio.`
+    ? `Incongruenza: Il box "${explicitBox.notes || 'Rifornimento'}" è del ${new Date(explicitBox.refuel_date).toLocaleDateString()}, successivo al viaggio.`
     : '';
 
   return {
@@ -98,7 +95,6 @@ function handleFifoConsumption(
         primaryMatchedBox = sortedBoxes.find(b => b.id === batch.boxId);
       }
       consumedFromAnyValid = true;
-
       if (remainingToConsume <= 0) break;
     }
   }
@@ -154,10 +150,11 @@ export function enrichTripsWithCosts(trips: Trip[], refuelBoxes: RefuelBox[]): E
       primaryMatchedBox = fifoResult.primaryMatchedBox;
     }
 
-    const roundedCost = Math.ceil(totalCost * 1000) / 1000;
+    const roundedCost = Math.ceil(totalCost * 100) / 100;
 
     resultsMap.set(originalIndex, {
       ...trip,
+      cost: roundedCost,
       calculated_cost: roundedCost,
       matchedRefuelBox: primaryMatchedBox,
       isBoxDateMismatched: isMismatch,

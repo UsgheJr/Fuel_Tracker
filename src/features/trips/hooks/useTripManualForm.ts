@@ -1,5 +1,3 @@
-// src/features/trips/hooks/useTripManualForm.ts
-
 import { useState } from 'react';
 import type { Trip, RefuelBox, ConsumptionUnit } from '../../../shared/types';
 import type { TripCategory } from '../../../shared/types/categories';
@@ -29,9 +27,9 @@ export function useTripManualForm({
   const [consumption, setConsumption] = useState<string>('');
   const [consumptionUnit, setConsumptionUnit] = useState<ConsumptionUnit>('l/100km');
   const [category, setCategory] = useState<TripCategory>(categories[0] || 'Lavoro');
+  // Utilizziamo refuelBoxes per impostare eventualmente il primo box disponibile come valore di default
   const [refuelBoxId, setRefuelBoxId] = useState<string>(refuelBoxes[0]?.id || '');
   const [notes, setNotes] = useState<string>('');
-
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
@@ -60,7 +58,7 @@ export function useTripManualForm({
       distance_km: parsedDistance,
       fuel_efficiency_kpl: parsedConsumption > 0 ? parsedConsumption : undefined,
       consumption_unit: consumptionUnit,
-      category: category as TripCategory,
+      category: category,
       refuel_box_id: refuelBoxId !== '' ? refuelBoxId : undefined,
       notes: notes.trim() || undefined,
     };
@@ -70,7 +68,7 @@ export function useTripManualForm({
       onAddTrip(newTrip);
       setSuccess(true);
       if (onClose) onClose();
-    } catch (err) {
+    } catch {
       setError('Errore durante la creazione del viaggio.');
     } finally {
       setLoading(false);

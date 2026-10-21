@@ -1,5 +1,3 @@
-// src/features/app/hooks/useAppController.ts
-
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Trip, RefuelBox } from '../../../shared/types';
 import { DEFAULT_CATEGORIES } from '../../../shared/types/categories';
@@ -11,31 +9,18 @@ import { fetchRefuels, upsertRefuelBox } from '../../../database/repositories/re
 export function useAppController() {
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState<boolean>(true);
-
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [refuelBoxes, setRefuelBoxes] = useState<RefuelBox[]>([
-    {
-      id: 'default-box',
-      user_id: 'local-default', // Soddisfa il contratto di RefuelBox
-      refuel_date: '2026-10-01T00:00:00.000Z',
-      liters: 50,
-      price_per_liter: 1.859,
-      spent_amount: 92.95,
-      notes: 'Prezzo Standard Iniziale',
-    },
-  ]);
+  const [refuelBoxes, setRefuelBoxes] = useState<RefuelBox[]>([]);
   const [categories] = useState(DEFAULT_CATEGORIES);
-  
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedBoxId, setSelectedBoxId] = useState<string>('ALL');
   const [searchText, setSearchText] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-
   const [isManualModalOpen, setIsManualModalOpen] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [isLoadingDb, setIsLoadingDb] = useState<boolean>(true);
+  const [isLoadingDb, setIsLoadingDb] = useState<boolean>(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -56,11 +41,10 @@ export function useAppController() {
     async function loadDataFromCloud() {
       setIsLoadingDb(true);
       try {
-        const cloudTrips = await fetchTrips();
-        const cloudBoxes = await fetchRefuels();
-
-        if (cloudTrips.length > 0) setTrips(cloudTrips);
-        if (cloudBoxes.length > 0) setRefuelBoxes(cloudBoxes);
+        const cloudTrips = await fetchTrips(session.user.id);
+        const cloudBoxes = await fetchRefuels(session.user.id);
+        setTrips(cloudTrips);
+        setRefuelBoxes(cloudBoxes);
       } catch (err) {
         console.error('Impossibile caricare i dati da Supabase:', err);
       } finally {
@@ -172,9 +156,10 @@ export function useAppController() {
     if (trips.length === 0) return;
     setIsSaving(true);
     setSaveMessage(null);
+
     try {
       await upsertTrips(enrichedTrips);
-      setSaveMessage('Viaggi salvati con successo su Supabase! 🎉');
+      setSaveMessage('Viaggi salvati con successo su Supabase!');
     } catch (err) {
       setSaveMessage('Errore durante il salvataggio su Supabase.');
     } finally {

@@ -1,6 +1,5 @@
-// src/shared/types/index.ts
-
 export type ConsumptionUnit = 'l/100km' | 'km/l' | 'l/km';
+
 import type { TripCategory } from './categories';
 
 export interface Trip {

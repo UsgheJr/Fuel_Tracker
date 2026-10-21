@@ -1,7 +1,7 @@
 // src/features/trips/components/TripManualForm.tsx
 
 import React from 'react';
-import { useTripManualForm } from '../hooks/useTripMaualForm';
+import { useTripManualForm } from '../hooks/useTripManualForm';
 import { tripManualFormStyles as styles } from '../styles/tripManualFormStyles';
 import type { Trip, RefuelBox, ConsumptionUnit } from '../../../shared/types';
 import type { TripCategory } from '../../../shared/types/categories';
