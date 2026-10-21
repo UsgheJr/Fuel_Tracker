@@ -1,73 +1,70 @@
-export interface RawCsvTrip {
-  [key: string]: any;
-}
+// src/shared/utils/parseCsvTrips.ts
 
-// Funzione per pulire l'indirizzo (mantiene solo via e località principale)
+import type { Trip } from '../types';
+import type { TripCategory } from '../types/categories';
+
+/**
+ * Pulisce l'indirizzo rimuovendo indicazioni di provincia e nazione ridondanti.
+ */
 export function cleanAddress(fullAddress: string): string {
-  if (!fullAddress) return "Indirizzo non specificato";
-  
+  if (!fullAddress || fullAddress.trim() === '') return 'Indirizzo non specificato';
   try {
-    let cleaned = fullAddress.replace(/provincia di.*$/i, "").trim();
-    cleaned = cleaned.replace(/,\s*$/, "");
+    let cleaned = fullAddress.replace(/provincia di.*$/i, '').trim();
+    cleaned = cleaned.replace(/,\s*$/, '');
     return cleaned;
-  } catch (e) {
+  } catch {
     return fullAddress;
   }
 }
 
-// Funzione di utilità per cercare una stringa che sia un timestamp valido all'interno della riga
-function findValidDate(rowObj: Record<string, any>, preferredKeys: string[]): string {
-  // 1. Controlla prima le chiavi preferite (es. "Unnamed: 1", etc.)
-  for (const key of preferredKeys) {
-    if (rowObj[key]) {
-      const d = new Date(rowObj[key]);
-      if (!isNaN(d.getTime())) {
-        return d.toISOString();
-      }
-    }
-  }
-
-  // 2. Se non la trova, scansiona TUTTI i valori della riga alla ricerca di una data valida
-  for (const val of Object.values(rowObj)) {
-    if (typeof val === 'string' && (val.includes('T') || val.includes('-')) && val.length > 10) {
-      const d = new Date(val);
-      if (!isNaN(d.getTime())) {
-        return d.toISOString();
-      }
-    }
-  }
-
-  return new Date().toISOString();
+/**
+ * Converte in modo sicuro stringhe numeriche con virgola o punto in float.
+ */
+function parseItalianNumber(val: unknown): number {
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (!val) return 0;
+  const sanitized = String(val).replace(',', '.').trim();
+  const parsed = parseFloat(sanitized);
+  return isNaN(parsed) ? 0 : parsed;
 }
 
-export function parseTripCsvRow(row: RawCsvTrip) {
-  // Estrazione flessibile delle chiavi (gestisce variazioni di intestazione nel CSV)
-  const keys = Object.keys(row);
-  
-  // Trova i campi di partenza e destinazione (di solito la 1° e la 3° colonna)
-  const rawDepAddress = row["Partenza"] || row[keys[0]] || "";
-  const rawArrAddress = row["Destinazione"] || row[keys[2]] || "";
+/**
+ * Analizza una singola riga array estratta da PapaParse (header: false).
+ * Mappatura posizionale rigorosa:
+ * [0] Partenza Address | [1] Departure Time ISO | [2] Destinazione Address | [3] Arrival Time ISO
+ * [4] Distanza (km)    | [5] Consumo (l/100km)  | [6] Categoria
+ */
+export function parseTripCsvRowArray(row: string[], currentUserId: string): Trip | null {
+  if (!row || row.length < 5) return null;
 
-  // Cerca le date in modo intelligente nelle colonne "Unnamed: 1", "Unnamed: 3" o simili
-  const departureIso = findValidDate(row, ["Unnamed: 1", keys[1], "departure_time"]);
-  const arrivalIso = findValidDate(row, ["Unnamed: 3", keys[3], "arrival_time"]);
+  const rawDepAddress = row[0] || '';
+  const departureIso = row[1] && row[1].includes('T') ? row[1].trim() : new Date().toISOString();
+  const rawArrAddress = row[2] || '';
+  const arrivalIso = row[3] && row[3].includes('T') ? row[3].trim() : departureIso;
 
-  // Campi numerici con conversione sicura da virgola a punto
-  const rawDistance = row["Distanza percorsa (km)"] ?? row[keys[4]] ?? "0";
-  const rawConsumption = row["Consumo di carburante (l/100km)"] ?? row[keys[5]] ?? "0";
+  const distanceKm = parseItalianNumber(row[4]);
+  const consumptionLitersPer100Km = parseItalianNumber(row[5]);
+  const category = (row[6]?.trim() as TripCategory) || 'Lavoro';
 
-  const distance = parseFloat(String(rawDistance).replace(",", "."));
-  const consumption = parseFloat(String(rawConsumption).replace(",", "."));
+  // Salta la riga dell'intestazione o viaggi senza distanza
+  if (distanceKm <= 0 || rawDepAddress.toLowerCase().includes('partenza')) {
+    return null;
+  }
 
-  const category = row["Categoria viaggio"] ?? row[keys[6]] ?? "Personale";
+  const departureClean = cleanAddress(rawDepAddress);
+  const arrivalClean = cleanAddress(rawArrAddress);
 
   return {
-    departure_address: cleanAddress(String(rawDepAddress)),
+    id: crypto.randomUUID(),
+    user_id: currentUserId,
     departure_time: departureIso,
-    arrival_address: cleanAddress(String(rawArrAddress)),
     arrival_time: arrivalIso,
-    distance_km: isNaN(distance) ? 0 : distance,
-    average_consumption_l_100km: isNaN(consumption) ? 0 : consumption,
-    category: String(category),
+    departure_address: departureClean,
+    arrival_address: arrivalClean,
+    distance_km: distanceKm,
+    fuel_efficiency_kpl: consumptionLitersPer100Km > 0 ? consumptionLitersPer100Km : undefined,
+    consumption_unit: 'l/100km',
+    category: category,
+    notes: `Da ${departureClean} a ${arrivalClean}`,
   };
 }

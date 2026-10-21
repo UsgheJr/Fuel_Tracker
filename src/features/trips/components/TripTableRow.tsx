@@ -1,6 +1,8 @@
+// src/features/trips/components/TripTableRow.tsx
+
 import React from 'react';
 import { tripTableStyles as styles } from '../styles/tripTableStyles';
-import { formatDate, formatCurrency } from '../../../shared/utils/formatters';
+import { formatDateTime, formatCurrency } from '../../../shared/utils/formatters';
 import type { EnrichedTrip } from '../services/tripMatchingService';
 import type { TableDensity } from '../hooks/useTripTable';
 
@@ -18,8 +20,11 @@ export const TripTableRow: React.FC<TripTableRowProps> = ({
   onSelect,
 }) => {
   const isCompact = density === 'compact';
-  const consumptionDisplay = trip.fuel_efficiency_kpl
-    ? `${trip.fuel_efficiency_kpl} ${trip.consumption_unit || 'l/100km'}`
+
+  // Recupera il consumo salvato e applica l'unità corretta
+  const consumptionValue = trip.fuel_efficiency_kpl;
+  const consumptionDisplay = consumptionValue && consumptionValue > 0
+    ? `${consumptionValue} ${trip.consumption_unit || 'l/100km'}`
     : 'N/D';
 
   return (
@@ -33,7 +38,7 @@ export const TripTableRow: React.FC<TripTableRowProps> = ({
         />
       </td>
       <td className={styles.td + ' font-medium'}>
-        {formatDate(trip.departure_time)}
+        {formatDateTime(trip.departure_time)}
       </td>
       <td className={styles.td}>{trip.distance_km} km</td>
       <td className={styles.td}>
