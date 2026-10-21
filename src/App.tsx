@@ -107,7 +107,10 @@ export default function App() {
               <h2 className="text-base font-bold text-slate-800 mb-1">Importa Viaggi</h2>
               <p className="text-xs text-slate-400 mb-4">Carica file CSV senza perdere i dati esistenti.</p>
             </div>
-            <TripCsvUploader onImportParsed={handleImportParsed} />
+            <TripCsvUploader 
+                currentUserId={session?.user?.id ?? 'local-user-id'}
+                onImportParsed={handleImportParsed} 
+              />          
           </div>
 
           <div>
