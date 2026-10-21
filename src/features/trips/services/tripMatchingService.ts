@@ -1,5 +1,5 @@
 import type { Trip, RefuelBox } from '../../../shared/types';
-import { normalizeToLitersPer100Km } from '../../../shared/utils/fuelConverter';
+import { calculateFuelNeeded } from '../../../shared/utils/fuelConverter';
 
 export interface EnrichedTrip extends Trip {
   calculated_cost?: number;
@@ -17,8 +17,7 @@ interface TankBatch {
 }
 
 const FALLBACK_PRICE = 1.859;
-const DEFAULT_KPL = 15;
-const DEFAULT_TANK_LITERS = 1;
+const DEFAULT_TANK_LITERS = 50.0;
 
 function initializeTankBatches(sortedBoxes: RefuelBox[]): TankBatch[] {
   if (sortedBoxes.length === 0) {
@@ -53,15 +52,19 @@ function handleExplicitBoxMatch(
   const explicitBox = refuelBoxes.find(b => b.id === trip.refuel_box_id);
   if (!explicitBox) return null;
 
-  const litersPer100Km = normalizeToLitersPer100Km(trip.fuel_efficiency_kpl, trip.consumption_unit);
-  const litersNeeded = (trip.distance_km * litersPer100Km) / 100;
+  const litersNeeded = calculateFuelNeeded(
+    trip.distance_km,
+    trip.fuel_efficiency_kpl,
+    trip.consumption_unit
+  );
+
   const activePrice = explicitBox.price_per_liter ?? FALLBACK_PRICE;
   const totalCost = litersNeeded * activePrice;
   const boxTime = new Date(explicitBox.refuel_date).getTime();
   const isMismatch = tripTime < boxTime;
-  
-  const warningMsg = isMismatch 
-    ? `Incongruenza: Il box "${explicitBox.notes || 'Rifornimento'}" è del ${new Date(explicitBox.refuel_date).toLocaleDateString()}, successivo al viaggio.`
+
+  const warningMsg = isMismatch
+    ? `Incongruenza: Il box "${explicitBox.notes || 'Rifornimento'}" è del ${new Date(explicitBox.refuel_date).toLocaleDateString()}, successivo alla data del viaggio.`
     : '';
 
   return {
@@ -78,8 +81,13 @@ function handleFifoConsumption(
   tankBatches: TankBatch[],
   sortedBoxes: RefuelBox[]
 ) {
-  const kpl = trip.fuel_efficiency_kpl && trip.fuel_efficiency_kpl > 0 ? trip.fuel_efficiency_kpl : DEFAULT_KPL;
-  let remainingToConsume = trip.distance_km / kpl;
+  // Calcolo preciso dei litri necessari usando la stessa utility normalizzata
+  let remainingToConsume = calculateFuelNeeded(
+    trip.distance_km,
+    trip.fuel_efficiency_kpl,
+    trip.consumption_unit
+  );
+
   let totalCost = 0;
   let primaryMatchedBox: RefuelBox | undefined = undefined;
   let consumedFromAnyValid = false;
@@ -99,6 +107,7 @@ function handleFifoConsumption(
     }
   }
 
+  // Gestione dell'eccedenza con l'ultimo lotto o con il prezzo fallback
   if (remainingToConsume > 0) {
     const fallbackBatch = tankBatches[tankBatches.length - 1];
     totalCost += remainingToConsume * fallbackBatch.pricePerLiter;
@@ -130,7 +139,7 @@ export function enrichTripsWithCosts(trips: Trip[], refuelBoxes: RefuelBox[]): E
 
   for (const item of indexedTrips) {
     const { trip, originalIndex, tripTime } = item;
-    
+
     let totalCost = 0;
     let primaryMatchedBox: RefuelBox | undefined = undefined;
     let isMismatch = false;
@@ -150,7 +159,7 @@ export function enrichTripsWithCosts(trips: Trip[], refuelBoxes: RefuelBox[]): E
       primaryMatchedBox = fifoResult.primaryMatchedBox;
     }
 
-    const roundedCost = Math.ceil(totalCost * 100) / 100;
+    const roundedCost = Math.round(totalCost * 100) / 100;
 
     resultsMap.set(originalIndex, {
       ...trip,

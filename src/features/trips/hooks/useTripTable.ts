@@ -1,48 +1,50 @@
-// src/features/trips/hooks/useTripTable.ts
-
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { Trip } from '../../../shared/types';
-import { fetchUserTrips } from '../services/tripService';
+
+export type TableDensity = 'compact' | 'expanded';
 
 interface UseTripTableProps {
-  userId: string;
+  trips: Trip[];
+  onDeleteMultiple?: (tripIds: string[]) => void;
 }
 
-export function useTripTable({ userId }: UseTripTableProps) {
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string>('');
+export function useTripTable({ trips, onDeleteMultiple }: UseTripTableProps) {
+  const [selectedTripIds, setSelectedTripIds] = useState<string[]>([]);
+  const [density, setDensity] = useState<TableDensity>('compact');
 
-  const loadTrips = useCallback(async () => {
-    if (!userId) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await fetchUserTrips(userId);
-      setTrips(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Errore sconosciuto durante il caricamento');
-    } finally {
-      setLoading(false);
+  const allTripIds = useMemo(() => trips.map((t) => t.id), [trips]);
+
+  const isAllSelected = useMemo(() => {
+    return allTripIds.length > 0 && allTripIds.every((id) => selectedTripIds.includes(id));
+  }, [allTripIds, selectedTripIds]);
+
+  const handleSelectAll = useCallback(() => {
+    if (isAllSelected) {
+      setSelectedTripIds([]);
+    } else {
+      setSelectedTripIds(allTripIds);
     }
-  }, [userId]);
+  }, [isAllSelected, allTripIds]);
 
-  useEffect(() => {
-    loadTrips();
-  }, [loadTrips]);
+  const handleSelectTrip = useCallback((tripId: string) => {
+    setSelectedTripIds((prev) =>
+      prev.includes(tripId) ? prev.filter((id) => id !== tripId) : [...prev, tripId]
+    );
+  }, []);
 
-  const filteredTrips = trips.filter((trip) =>
-    trip.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (trip.notes && trip.notes.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedTripIds.length === 0 || !onDeleteMultiple) return;
+    onDeleteMultiple(selectedTripIds);
+    setSelectedTripIds([]);
+  }, [selectedTripIds, onDeleteMultiple]);
 
   return {
-    trips: filteredTrips,
-    loading,
-    error,
-    searchTerm,
-    setSearchTerm,
-    refreshTrips: loadTrips,
+    density,
+    setDensity,
+    selectedTripIds,
+    isAllSelected,
+    handleSelectAll,
+    handleSelectTrip,
+    handleDeleteSelected,
   };
 }

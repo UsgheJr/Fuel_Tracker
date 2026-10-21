@@ -136,8 +136,8 @@ export function useAppController() {
     setTrips((prev) => prev.filter((_, idx) => idx !== indexToDelete));
   }, []);
 
-  const handleDeleteMultiple = useCallback((indicesToDelete: number[]) => {
-    setTrips((prev) => prev.filter((_, idx) => !indicesToDelete.includes(idx)));
+  const handleDeleteMultiple = useCallback((tripIdsToDelete: string[]) => {
+    setTrips((prev) => prev.filter((trip) => !tripIdsToDelete.includes(trip.id)));
   }, []);
 
   const handleUpdateCategory = useCallback((indexToUpdate: number, newCategory: string) => {

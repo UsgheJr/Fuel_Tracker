@@ -41,10 +41,7 @@ export default function App() {
     handleAddManualTrip,
     handleAddRefuelBox,
     handleUpdateRefuelBox,
-    handleDeleteTrip,
     handleDeleteMultiple,
-    handleUpdateCategory,
-    handleUpdateRefuelBoxAssignment,
     handleSaveToDatabase,
   } = useAppController();
 
@@ -150,14 +147,9 @@ export default function App() {
             <h2 className="text-base font-bold text-slate-800">Elenco Viaggi ({filteredTrips.length})</h2>
           </div>
           <TripTable
-            trips={filteredTrips}
-            refuelBoxes={refuelBoxes}
-            categories={categories}
-            onDeleteTrip={handleDeleteTrip}
-            onDeleteMultiple={handleDeleteMultiple}
-            onUpdateCategory={handleUpdateCategory}
-            onUpdateRefuelBoxAssignment={handleUpdateRefuelBoxAssignment}
-          />
+              trips={filteredTrips}
+              onDeleteMultiple={handleDeleteMultiple}
+            />
         </section>
       </main>
 
