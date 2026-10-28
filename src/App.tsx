@@ -7,8 +7,15 @@ import { TripFilters } from './features/trips/components/TripFilters';
 import { TripManualForm } from './features/trips/components/TripManualForm';
 import { SyncStatusIndicator } from './features/sync/components/SyncStatusIndicator';
 import Login from './features/auth/components/Login';
+import { isSupabaseConfigured } from './database/supabaseClient';
+import { ConfigErrorFallback } from './shared/components/ConfigErrorFallback';
+
 
 export default function App() {
+  if (!isSupabaseConfigured) {
+    return <ConfigErrorFallback />;
+  }
+
   const {
     session,
     user,

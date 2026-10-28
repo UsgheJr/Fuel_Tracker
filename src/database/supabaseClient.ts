@@ -1,17 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types/database.type';
+import { getAppConfig } from '../shared/services/configService';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+const config = getAppConfig();
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Mancano le variabili d\'ambiente necessarie per l\'inizializzazione di Supabase.');
-}
+// Inizializzazione tollerante: usa URL/Key fallback se mancanti per prevenire schermate bianche in runtime
+export const isSupabaseConfigured = config.isConfigured;
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-});
+export const supabase = createClient<Database>(
+  config.supabaseUrl || 'https://placeholder.supabase.co',
+  config.supabaseAnonKey || 'placeholder-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  }
+);
