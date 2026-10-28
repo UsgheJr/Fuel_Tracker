@@ -2,14 +2,26 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Trip, RefuelBox } from '../../../shared/types';
 import { DEFAULT_CATEGORIES } from '../../../shared/types/categories';
 import { enrichTripsWithCosts } from '../../trips/services/tripMatchingService';
-import { supabase } from '../../../database/supabaseClient';
-import { fetchTrips, upsertTrips } from '../../../database/repositories/tripRepository';
+import { fetchTrips } from '../../../database/repositories/tripRepository';
 import { fetchRefuels, upsertRefuelBox } from '../../../database/repositories/refuelRepository';
+import { useAuth } from '../../auth/hooks/useAuth';
+import { useDataSync } from '../../sync/hooks/useDataSync';
 
 export function useAppController() {
-  const [session, setSession] = useState<any>(null);
-  const [loadingSession, setLoadingSession] = useState<boolean>(true);
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const { session, user, isLoading: loadingSession, signOut } = useAuth();
+  
+  // Integrazione dell'hook di Sincronizzazione Offline per i viaggi
+  const {
+    data: trips,
+    setData: setTrips,
+    addItem: addTripLocal,
+    addBatchItems: addBatchTripsLocal,
+    removeItems: removeTripsLocal,
+    syncStatus,
+    triggerManualSync,
+    hasPendingChanges,
+  } = useDataSync<Trip>('trips', 'app_trips_cache');
+
   const [refuelBoxes, setRefuelBoxes] = useState<RefuelBox[]>([]);
   const [categories] = useState(DEFAULT_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -18,42 +30,40 @@ export function useAppController() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [isManualModalOpen, setIsManualModalOpen] = useState<boolean>(false);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isLoadingDb, setIsLoadingDb] = useState<boolean>(false);
 
+  const userId = user?.id;
+
+  // Caricamento e riconciliazione dei dati cloud -> locale al mount o cambio utente
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoadingSession(false);
-    });
+    if (!userId) {
+      setTrips([]);
+      setRefuelBoxes([]);
+      return;
+    }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!session?.user?.id) return;
-
-    async function loadDataFromCloud() {
+    async function loadDataFromCloud(currentUserId: string) {
       setIsLoadingDb(true);
       try {
-        const cloudTrips = await fetchTrips(session.user.id);
-        const cloudBoxes = await fetchRefuels(session.user.id);
-        setTrips(cloudTrips);
+        const [cloudTrips, cloudBoxes] = await Promise.all([
+          fetchTrips(currentUserId),
+          fetchRefuels(currentUserId),
+        ]);
+        
+        // Se non ci sono modifiche pendenti non salvate, allinea la cache locale col DB
+        if (!hasPendingChanges && cloudTrips.length > 0) {
+          setTrips(cloudTrips);
+        }
         setRefuelBoxes(cloudBoxes);
       } catch (err) {
-        console.error('Impossibile caricare i dati da Supabase:', err);
+        console.error('Modalità Offline attiva o errore di connessione Supabase:', err);
       } finally {
         setIsLoadingDb(false);
       }
     }
 
-    loadDataFromCloud();
-  }, [session]);
+    loadDataFromCloud(userId);
+  }, [userId, hasPendingChanges, setTrips]);
 
   const enrichedTrips = useMemo(() => {
     return enrichTripsWithCosts(trips, refuelBoxes);
@@ -102,15 +112,13 @@ export function useAppController() {
   }, [filteredTrips]);
 
   const handleImportParsed = useCallback((parsedTrips: Trip[]) => {
-    setTrips((prev) => [...prev, ...parsedTrips]);
-    setSaveMessage(null);
-  }, []);
+    addBatchTripsLocal(parsedTrips);
+  }, [addBatchTripsLocal]);
 
   const handleAddManualTrip = useCallback((newTrip: Trip) => {
-    setTrips((prev) => [newTrip, ...prev]);
+    addTripLocal(newTrip);
     setIsManualModalOpen(false);
-    setSaveMessage(null);
-  }, []);
+  }, [addTripLocal]);
 
   const handleAddRefuelBox = useCallback(async (newBox: RefuelBox) => {
     setRefuelBoxes((prev) => [...prev, newBox]);
@@ -132,45 +140,15 @@ export function useAppController() {
     }
   }, []);
 
-  const handleDeleteTrip = useCallback((indexToDelete: number) => {
-    setTrips((prev) => prev.filter((_, idx) => idx !== indexToDelete));
-  }, []);
-
   const handleDeleteMultiple = useCallback((tripIdsToDelete: string[]) => {
-    setTrips((prev) => prev.filter((trip) => !tripIdsToDelete.includes(trip.id)));
-  }, []);
-
-  const handleUpdateCategory = useCallback((indexToUpdate: number, newCategory: string) => {
-    setTrips((prev) =>
-      prev.map((trip, idx) => (idx === indexToUpdate ? { ...trip, category: newCategory } : trip))
-    );
-  }, []);
-
-  const handleUpdateRefuelBoxAssignment = useCallback((indexToUpdate: number, newBoxId: string) => {
-    setTrips((prev) =>
-      prev.map((trip, idx) => (idx === indexToUpdate ? { ...trip, refuel_box_id: newBoxId } : trip))
-    );
-  }, []);
-
-  const handleSaveToDatabase = async () => {
-    if (trips.length === 0) return;
-    setIsSaving(true);
-    setSaveMessage(null);
-
-    try {
-      await upsertTrips(enrichedTrips);
-      setSaveMessage('Viaggi salvati con successo su Supabase!');
-    } catch (err) {
-      setSaveMessage('Errore durante il salvataggio su Supabase.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    removeTripsLocal(tripIdsToDelete);
+  }, [removeTripsLocal]);
 
   return {
     session,
-    setSession,
+    user,
     loadingSession,
+    signOut,
     trips,
     refuelBoxes,
     categories,
@@ -186,21 +164,18 @@ export function useAppController() {
     setEndDate,
     isManualModalOpen,
     setIsManualModalOpen,
-    isSaving,
-    saveMessage,
     isLoadingDb,
     uniqueCategories,
     filteredTrips,
     totalCost,
     totalKm,
+    syncStatus,
+    hasPendingChanges,
+    triggerManualSync,
     handleImportParsed,
     handleAddManualTrip,
     handleAddRefuelBox,
     handleUpdateRefuelBox,
-    handleDeleteTrip,
     handleDeleteMultiple,
-    handleUpdateCategory,
-    handleUpdateRefuelBoxAssignment,
-    handleSaveToDatabase,
   };
 }

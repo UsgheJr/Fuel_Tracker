@@ -1,8 +1,8 @@
-// src/features/trips/components/TripCsvUploader.tsx
-
-import React from 'react';
+import React, { useState } from 'react';
 import Papa from 'papaparse';
 import { parseTripCsvRowArray } from '../../../shared/utils/parseCsvTrips';
+import { validateCsvFile } from '../../../shared/utils/fileValidators';
+import { tripCsvUploaderStyles as styles } from '../styles/tripCsvUploaderStyles';
 import type { Trip } from '../../../shared/types';
 
 interface TripCsvUploaderProps {
@@ -14,16 +14,28 @@ export const TripCsvUploader: React.FC<TripCsvUploaderProps> = ({
   currentUserId,
   onImportParsed,
 }) => {
+  const [error, setError] = useState<string | null>(null);
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    setError(null);
+
     if (!file) return;
 
+    // Validazione di sicurezza prima di avviare il parsing
+    const validation = validateCsvFile(file);
+    if (!validation.isValid) {
+      setError(validation.errorMessage);
+      event.target.value = ''; // Reset dell'input
+      return;
+    }
+
+    // Parsing con PapaParse a seguito della verifica di sicurezza
     Papa.parse<string[]>(file, {
       header: false,
       skipEmptyLines: true,
       complete: (results) => {
         const parsedTrips: Trip[] = [];
-
         for (const row of results.data) {
           const trip = parseTripCsvRowArray(row, currentUserId);
           if (trip) {
@@ -33,25 +45,32 @@ export const TripCsvUploader: React.FC<TripCsvUploaderProps> = ({
 
         if (parsedTrips.length > 0) {
           onImportParsed(parsedTrips);
+        } else {
+          setError('Il file CSV non contiene viaggi validi o ha un formato errato.');
         }
+      },
+      error: (err) => {
+        console.error('[TripCsvUploader] Errore di parsing CSV:', err);
+        setError('Errore durante la lettura del file CSV.');
       },
     });
 
-    // Reset dell'input per permettere il re-upload dello stesso file
+    // Reset dell'input per permettere il re-upload dello stesso file in caso di correzioni
     event.target.value = '';
   };
 
   return (
-    <div className="p-4 border-2 border-dashed border-slate-300 rounded-xl text-center bg-white shadow-2xs hover:border-indigo-400 transition-colors">
-      <p className="mb-2 text-xs font-semibold text-slate-600">
-        Trascina qui il file CSV dei viaggi o selezionalo dal dispositivo
-      </p>
+    <div className={styles.container(Boolean(error))}>
+      <span className={styles.label}>
+        Trascina qui il file CSV dei viaggi o selezionalo dal dispositivo (Max 5MB)
+      </span>
       <input
         type="file"
         accept=".csv"
         onChange={handleFileUpload}
-        className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+        className={styles.input}
       />
+      {error && <div className={styles.errorMessage}>{error}</div>}
     </div>
   );
 };

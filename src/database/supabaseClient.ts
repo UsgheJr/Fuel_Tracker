@@ -1,19 +1,17 @@
-// src/database/supabaseClient.ts
-
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from './types/database.type';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Variabili d’ambiente VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY mancanti nel client Supabase.'
-  );
+  throw new Error('Mancano le variabili d\'ambiente necessarie per l\'inizializzazione di Supabase.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
   },
 });
