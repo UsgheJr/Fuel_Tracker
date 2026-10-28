@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { LocalStorageService } from '../../../shared/services/storage/localStorageService';
-import { SyncService } from '../services/syncService';
+import { SyncService, type ValidTableName } from '../services/syncService';
 import type { PendingItem, SyncStatus } from '../../../shared/types/sync';
 import { useSyncTimer } from './useSyncTimer';
 
 export const useDataSync = <T extends { id: string }>(
-  tableName: string,
+  tableName: ValidTableName,
   cacheKey: string
 ) => {
   const [data, setData] = useState<T[]>(() => {
@@ -18,12 +18,11 @@ export const useDataSync = <T extends { id: string }>(
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
 
-  // Salva la coda pendente in localStorage ad ogni aggiornamento
+  // Persistenza della coda su localStorage ad ogni variazione
   useEffect(() => {
     LocalStorageService.set(`${cacheKey}_queue`, pendingQueue);
   }, [pendingQueue, cacheKey]);
 
-  // Sincronizza lo stato in-memory con il localStorage
   const updateLocalData = useCallback(
     (newData: T[]) => {
       setData(newData);
@@ -32,7 +31,7 @@ export const useDataSync = <T extends { id: string }>(
     [cacheKey]
   );
 
-  // Esegue la sincronizzazione verso Supabase
+  // Esecuzione sincronizzazione verso Supabase
   const executeSync = useCallback(async () => {
     if (pendingQueue.length === 0) return;
 
@@ -49,10 +48,9 @@ export const useDataSync = <T extends { id: string }>(
     }
   }, [pendingQueue, tableName, cacheKey]);
 
-  // Timer periodico ogni 24h
   useSyncTimer(executeSync);
 
-  // Inserimento ottimistico locale
+  // Aggiunta elemento singolo locale
   const addItem = useCallback(
     (newItem: T) => {
       const updated = [newItem, ...data];
@@ -66,7 +64,7 @@ export const useDataSync = <T extends { id: string }>(
     [data, updateLocalData]
   );
 
-  // Inserimento in batch (es. da caricamento CSV)
+  // Aggiunta batch di elementi locali (es. da CSV)
   const addBatchItems = useCallback(
     (newItems: T[]) => {
       const updated = [...newItems, ...data];
@@ -84,7 +82,7 @@ export const useDataSync = <T extends { id: string }>(
     [data, updateLocalData]
   );
 
-  // Rimozione locale
+  // Rimozione elementi locali
   const removeItems = useCallback(
     (idsToRemove: string[]) => {
       const updated = data.filter((item) => !idsToRemove.includes(item.id));
