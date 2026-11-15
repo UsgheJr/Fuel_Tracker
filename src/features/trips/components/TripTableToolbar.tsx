@@ -7,6 +7,7 @@ interface TripTableToolbarProps {
   density: TableDensity;
   onDensityChange: (density: TableDensity) => void;
   onDeleteSelected: () => void;
+  onReimburseSelected?: () => void;
 }
 
 export const TripTableToolbar: React.FC<TripTableToolbarProps> = ({
@@ -14,6 +15,7 @@ export const TripTableToolbar: React.FC<TripTableToolbarProps> = ({
   density,
   onDensityChange,
   onDeleteSelected,
+  onReimburseSelected,
 }) => {
   return (
     <div className={styles.toolbarWrapper}>
@@ -38,10 +40,19 @@ export const TripTableToolbar: React.FC<TripTableToolbarProps> = ({
       </div>
 
       {selectedCount > 0 && (
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <span className="font-bold text-slate-700">
             {selectedCount} {selectedCount === 1 ? 'viaggio selezionato' : 'viaggi selezionati'}
           </span>
+          {onReimburseSelected && (
+            <button
+              type="button"
+              onClick={onReimburseSelected}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-2xs transition-colors cursor-pointer"
+            >
+              Segna Selezionati come Rimborsati
+            </button>
+          )}
           <button
             type="button"
             onClick={onDeleteSelected}

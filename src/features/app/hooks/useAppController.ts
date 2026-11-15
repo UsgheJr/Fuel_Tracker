@@ -6,6 +6,7 @@ import { fetchTrips } from '../../../database/repositories/tripRepository';
 import { fetchRefuels } from '../../../database/repositories/refuelRepository';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useMasterSync } from '../../sync/hooks/useMasterSync';
+import { useReimbursements } from '../../reimbursements/hooks/useReimbursements';
 
 export function useAppController() {
   const { session, user, isLoading: loadingSession, signOut } = useAuth();
@@ -24,6 +25,7 @@ export function useAppController() {
     setData: setTrips,
     addItem: addTripLocal,
     addBatchItems: addBatchTripsLocal,
+    updateBatchItems: updateTripsBatchLocal,
     removeItems: removeTripsLocal,
     hasPendingChanges: hasPendingTrips,
   } = tripsSync;
@@ -112,6 +114,31 @@ export function useAppController() {
     });
   }, [enrichedTrips, selectedCategory, selectedBoxId, searchText, startDate, endDate]);
 
+  const hasActiveFilters = useMemo(() => {
+    return (
+      selectedCategory !== 'ALL' ||
+      selectedBoxId !== 'ALL' ||
+      searchText.trim() !== '' ||
+      startDate !== '' ||
+      endDate !== ''
+    );
+  }, [selectedCategory, selectedBoxId, searchText, startDate, endDate]);
+
+  // Gestione Rimborsi Lavoro (4 livelli di granularità)
+  const {
+    summary: reimbursementSummary,
+    filteredPendingSummary: filteredReimbursementSummary,
+    reimburseSingleTrip,
+    reimburseSelectedTrips,
+    reimburseByRefuelBox,
+    reimburseFilteredPeriod,
+  } = useReimbursements({
+    rawTrips: trips,
+    enrichedTrips,
+    filteredTrips,
+    onUpdateTripsBatch: updateTripsBatchLocal,
+  });
+
   const { totalCost, totalKm } = useMemo(() => {
     return filteredTrips.reduce(
       (acc, trip) => {
@@ -177,6 +204,7 @@ export function useAppController() {
     setStartDate,
     endDate,
     setEndDate,
+    hasActiveFilters,
     isManualModalOpen,
     setIsManualModalOpen,
     isLoadingDb,
@@ -187,6 +215,12 @@ export function useAppController() {
     syncStatus: unifiedSyncStatus,
     hasPendingChanges: unifiedHasPending,
     triggerManualSync: triggerUnifiedSync,
+    reimbursementSummary,
+    filteredReimbursementSummary,
+    reimburseSingleTrip,
+    reimburseSelectedTrips,
+    reimburseByRefuelBox,
+    reimburseFilteredPeriod,
     handleImportParsed,
     handleAddManualTrip,
     handleAddRefuelBox,

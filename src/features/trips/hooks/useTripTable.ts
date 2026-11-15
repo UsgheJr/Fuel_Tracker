@@ -6,9 +6,14 @@ export type TableDensity = 'compact' | 'expanded';
 interface UseTripTableProps {
   trips: Trip[];
   onDeleteMultiple?: (tripIds: string[]) => void;
+  onReimburseMultiple?: (tripIds: string[]) => void;
 }
 
-export function useTripTable({ trips, onDeleteMultiple }: UseTripTableProps) {
+export function useTripTable({
+  trips,
+  onDeleteMultiple,
+  onReimburseMultiple,
+}: UseTripTableProps) {
   const [selectedTripIds, setSelectedTripIds] = useState<string[]>([]);
   const [density, setDensity] = useState<TableDensity>('compact');
 
@@ -38,6 +43,12 @@ export function useTripTable({ trips, onDeleteMultiple }: UseTripTableProps) {
     setSelectedTripIds([]);
   }, [selectedTripIds, onDeleteMultiple]);
 
+  const handleReimburseSelected = useCallback(() => {
+    if (selectedTripIds.length === 0 || !onReimburseMultiple) return;
+    onReimburseMultiple(selectedTripIds);
+    setSelectedTripIds([]);
+  }, [selectedTripIds, onReimburseMultiple]);
+
   return {
     density,
     setDensity,
@@ -46,5 +57,6 @@ export function useTripTable({ trips, onDeleteMultiple }: UseTripTableProps) {
     handleSelectAll,
     handleSelectTrip,
     handleDeleteSelected,
+    handleReimburseSelected,
   };
 }

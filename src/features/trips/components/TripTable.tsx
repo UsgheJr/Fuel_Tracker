@@ -8,9 +8,16 @@ import type { EnrichedTrip } from '../services/tripMatchingService';
 export interface TripTableProps {
   trips: EnrichedTrip[];
   onDeleteMultiple?: (tripIds: string[]) => void;
+  onReimburseMultiple?: (tripIds: string[]) => void;
+  onReimburseSingle?: (tripId: string) => void;
 }
 
-export const TripTable: React.FC<TripTableProps> = ({ trips, onDeleteMultiple }) => {
+export const TripTable: React.FC<TripTableProps> = ({
+  trips,
+  onDeleteMultiple,
+  onReimburseMultiple,
+  onReimburseSingle,
+}) => {
   const {
     density,
     setDensity,
@@ -19,7 +26,8 @@ export const TripTable: React.FC<TripTableProps> = ({ trips, onDeleteMultiple })
     handleSelectAll,
     handleSelectTrip,
     handleDeleteSelected,
-  } = useTripTable({ trips, onDeleteMultiple });
+    handleReimburseSelected,
+  } = useTripTable({ trips, onDeleteMultiple, onReimburseMultiple });
 
   const isCompact = density === 'compact';
   const totalColumns = isCompact ? 6 : 9;
@@ -31,6 +39,7 @@ export const TripTable: React.FC<TripTableProps> = ({ trips, onDeleteMultiple })
         density={density}
         onDensityChange={setDensity}
         onDeleteSelected={handleDeleteSelected}
+        onReimburseSelected={onReimburseMultiple ? handleReimburseSelected : undefined}
       />
 
       <div className="overflow-x-auto">
@@ -74,6 +83,7 @@ export const TripTable: React.FC<TripTableProps> = ({ trips, onDeleteMultiple })
                   density={density}
                   isSelected={selectedTripIds.includes(trip.id)}
                   onSelect={handleSelectTrip}
+                  onReimburseSingle={onReimburseSingle}
                 />
               ))
             )}

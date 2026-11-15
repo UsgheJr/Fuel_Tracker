@@ -6,10 +6,10 @@ import { RefuelBoxList } from './features/refuels/components/RefuelBoxList';
 import { TripFilters } from './features/trips/components/TripFilters';
 import { TripManualForm } from './features/trips/components/TripManualForm';
 import { SyncStatusIndicator } from './features/sync/components/SyncStatusIndicator';
+import { ReimbursementSummaryCard } from './features/reimbursements/components/ReimbursementSummaryCard';
 import Login from './features/auth/components/Login';
 import { isSupabaseConfigured } from './database/supabaseClient';
 import { ConfigErrorFallback } from './shared/components/ConfigErrorFallback';
-
 
 export default function App() {
   if (!isSupabaseConfigured) {
@@ -34,6 +34,7 @@ export default function App() {
     setStartDate,
     endDate,
     setEndDate,
+    hasActiveFilters,
     isManualModalOpen,
     setIsManualModalOpen,
     isLoadingDb,
@@ -44,6 +45,12 @@ export default function App() {
     syncStatus,
     hasPendingChanges,
     triggerManualSync,
+    reimbursementSummary,
+    filteredReimbursementSummary,
+    reimburseSingleTrip,
+    reimburseSelectedTrips,
+    reimburseByRefuelBox,
+    reimburseFilteredPeriod,
     handleImportParsed,
     handleAddManualTrip,
     handleAddRefuelBox,
@@ -70,13 +77,13 @@ export default function App() {
       <header className={styles.header}>
         <div className={styles.headerContainer}>
           <div>
-            <h1 className={styles.title}>🚗 Trip Cost Tracker</h1>
+            <h1 className={styles.title}>Trip Cost Tracker</h1>
             <p className={styles.subtitle}>
               Monitoraggio intelligente dei costi e dei rifornimenti di viaggio
             </p>
           </div>
+
           <div className="flex items-center space-x-3">
-            {/* Indicatore Stato Sincronizzazione Offline */}
             <SyncStatusIndicator
               status={syncStatus}
               hasPending={hasPendingChanges}
@@ -98,12 +105,26 @@ export default function App() {
           </div>
         </div>
       </header>
+
       <main className={styles.mainContainer}>
         {isLoadingDb && (
           <div className={styles.loadingSync}>
             Sincronizzazione dati con Supabase in corso...
           </div>
         )}
+
+        {/* Widget Rimborsi Lavoro ancora da ricevere */}
+        {trips.length > 0 && (
+          <ReimbursementSummaryCard
+            summary={reimbursementSummary}
+            filteredSummary={filteredReimbursementSummary}
+            refuelBoxes={refuelBoxes}
+            hasActiveFilters={hasActiveFilters}
+            onReimburseBox={reimburseByRefuelBox}
+            onReimburseFilteredPeriod={reimburseFilteredPeriod}
+          />
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
             <div>
@@ -119,6 +140,7 @@ export default function App() {
               onImportParsed={handleImportParsed}
             />
           </div>
+
           <div>
             <RefuelBoxList
               refuelBoxes={refuelBoxes}
@@ -128,6 +150,7 @@ export default function App() {
             />
           </div>
         </div>
+
         {trips.length > 0 && (
           <section>
             <TripFilters
@@ -149,6 +172,7 @@ export default function App() {
             />
           </section>
         )}
+
         <section className="space-y-3">
           <div className="flex justify-between items-center">
             <h2 className="text-base font-bold text-slate-800">
@@ -158,9 +182,12 @@ export default function App() {
           <TripTable
             trips={filteredTrips}
             onDeleteMultiple={handleDeleteMultiple}
+            onReimburseSingle={reimburseSingleTrip}
+            onReimburseMultiple={reimburseSelectedTrips}
           />
         </section>
       </main>
+
       {isManualModalOpen && (
         <div className={styles.modalOverlay}>
           <TripManualForm

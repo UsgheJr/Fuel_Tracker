@@ -146,9 +146,37 @@ export const useDataSync = <T extends { id: string }>(
     [data, updateLocalData]
   );
 
+  const updateBatchItems = useCallback(
+    (updatedItems: T[]) => {
+      if (updatedItems.length === 0) return;
+      const updatesMap = new Map(updatedItems.map((item) => [item.id, item]));
+
+      updateLocalData(data.map((item) => updatesMap.get(item.id) ?? item));
+
+      setPendingQueue((prev) => {
+        const next = [...prev];
+        const now = Date.now();
+
+        for (const updatedItem of updatedItems) {
+          const existingIdx = next.findIndex(
+            (q) => q.id === updatedItem.id && q.action !== 'DELETE'
+          );
+          if (existingIdx > -1) {
+            next[existingIdx] = { ...next[existingIdx], payload: updatedItem, timestamp: now };
+          } else {
+            next.push({ id: updatedItem.id, payload: updatedItem, action: 'UPDATE', timestamp: now });
+          }
+        }
+        return next;
+      });
+    },
+    [data, updateLocalData]
+  );
+
   return {
     data,
     updateItem,
+    updateBatchItems,
     setData: updateLocalData,
     addItem,
     addBatchItems,

@@ -53,6 +53,8 @@ export interface Database {
           calculated_cost: number | null;
           category: string;
           notes: string | null;
+          is_reimbursed: boolean;
+          reimbursed_at: string | null;
           created_at?: string;
         };
         Insert: {
@@ -70,6 +72,8 @@ export interface Database {
           calculated_cost?: number | null;
           category?: string;
           notes?: string | null;
+          is_reimbursed?: boolean;
+          reimbursed_at?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['trips']['Insert']>;

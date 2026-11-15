@@ -16,6 +16,8 @@ export interface Trip {
   cost?: number;
   category: TripCategory;
   notes?: string;
+  is_reimbursed?: boolean;
+  reimbursed_at?: string;
   created_at?: string;
 }
 
