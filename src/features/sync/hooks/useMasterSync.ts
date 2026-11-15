@@ -31,29 +31,29 @@ export function useMasterSync(userId?: string) {
 
   const unifiedHasPending = tripsSync.hasPendingChanges || refuelsSync.hasPendingChanges;
 
+  const unifiedSyncStatus: SyncStatus =
+  tripsSync.syncStatus === 'error' || refuelsSync.syncStatus === 'error'
+    ? 'error'
+    : tripsSync.syncStatus === 'syncing' || refuelsSync.syncStatus === 'syncing'
+    ? 'syncing'
+    : 'idle';
+
   // Smart Batching centralizzato e ordinato
   useEffect(() => {
-    if (!unifiedHasPending || !userId) return;
+    if (!unifiedHasPending || !userId || unifiedSyncStatus === 'error') return;
 
     const timer = setTimeout(() => {
       void triggerUnifiedSync();
     }, SYNC_CONFIG.DEBOUNCE_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [unifiedHasPending, userId, triggerUnifiedSync]);
+  }, [unifiedHasPending, userId, unifiedSyncStatus, triggerUnifiedSync]);
 
   // Flush atomico alla chiusura/background del browser
   useBrowserLifecycleSync({
     hasPending: unifiedHasPending && Boolean(userId),
     onFlushRequired: triggerUnifiedSync,
   });
-
-  const unifiedSyncStatus: SyncStatus =
-    tripsSync.syncStatus === 'error' || refuelsSync.syncStatus === 'error'
-      ? 'error'
-      : tripsSync.syncStatus === 'syncing' || refuelsSync.syncStatus === 'syncing'
-      ? 'syncing'
-      : 'idle';
 
   return {
     tripsSync,

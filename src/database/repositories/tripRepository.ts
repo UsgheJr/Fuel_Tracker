@@ -21,7 +21,7 @@ export function sanitizeTripForDatabase(trip: Trip | EnrichedTrip): TablesInsert
     refuel_box_id: trip.refuel_box_id || null,
     category: trip.category,
     notes: trip.notes ?? null,
-    created_at: trip.created_at,
+    created_at: trip.created_at ?? new Date().toISOString(),
   };
 }
 

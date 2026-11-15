@@ -20,12 +20,12 @@ export function mapRefuelBoxToDbInsert(box: RefuelBox): TablesInsert<'refuel_box
     id: box.id,
     user_id: box.user_id,
     refuel_date: box.refuel_date,
-    fuel_price_per_liter: box.price_per_liter,
-    liters_added: box.liters,
-    spent_amount: box.spent_amount,
-    total_cost: box.spent_amount,
+    fuel_price_per_liter: Number(box.price_per_liter),
+    liters_added: Number(box.liters ?? 0),
+    spent_amount: Number(box.spent_amount ?? 0),
+    total_cost: Number(box.spent_amount ?? 0),
     notes: box.notes ?? null,
-    created_at: box.created_at,
+    created_at: box.created_at ?? new Date().toISOString(),
   };
 }
 
