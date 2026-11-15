@@ -89,7 +89,7 @@ export default function App() {
               + Inserisci Viaggio Manuale
             </button>
             <button
-              onClick={() => signOut()}
+              onClick={() => void signOut(triggerManualSync)}
               className={styles.buttonSecondary}
               title="Esci dall'account"
             >

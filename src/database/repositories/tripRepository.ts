@@ -7,7 +7,7 @@ import type { TablesInsert } from '../types/database.type';
  * Mappatore puro (SRP): Rimuove tutte le proprietà di runtime e calcolate (es. cost, calculated_cost)
  * per garantire perfetta compatibilità con il tipo TablesInsert<'trips'> di Supabase.
  */
-function sanitizeTripForDatabase(trip: Trip | EnrichedTrip): TablesInsert<'trips'> {
+export function sanitizeTripForDatabase(trip: Trip | EnrichedTrip): TablesInsert<'trips'> {
   return {
     id: trip.id,
     user_id: trip.user_id,
@@ -17,8 +17,8 @@ function sanitizeTripForDatabase(trip: Trip | EnrichedTrip): TablesInsert<'trips
     arrival_address: trip.arrival_address ?? null,
     distance_km: trip.distance_km,
     fuel_efficiency_kpl: trip.fuel_efficiency_kpl ?? null,
-    consumption_unit: trip.consumption_unit ?? null,
-    refuel_box_id: trip.refuel_box_id ?? null,
+    consumption_unit: trip.consumption_unit ?? 'l/100km',
+    refuel_box_id: trip.refuel_box_id || null,
     category: trip.category,
     notes: trip.notes ?? null,
     created_at: trip.created_at,

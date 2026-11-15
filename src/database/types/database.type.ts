@@ -9,14 +9,16 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
-      refuels: {
+      refuel_boxes: {
         Row: {
           id: string;
           user_id: string;
           refuel_date: string;
-          price_per_liter: number;
+          fuel_price_per_liter: number;
           spent_amount: number | null;
-          liters: number;
+          liters_added: number;
+          total_cost: number | null;
+          person_name: string | null;
           notes: string | null;
           created_at?: string;
         };
@@ -24,22 +26,15 @@ export interface Database {
           id?: string;
           user_id: string;
           refuel_date: string;
-          price_per_liter: number;
+          fuel_price_per_liter: number;
           spent_amount?: number | null;
-          liters: number;
+          liters_added: number;
+          total_cost?: number | null;
+          person_name?: string | null;
           notes?: string | null;
           created_at?: string;
         };
-        Update: {
-          id?: string;
-          user_id?: string;
-          refuel_date?: string;
-          price_per_liter?: number;
-          spent_amount?: number | null;
-          liters?: number;
-          notes?: string | null;
-          created_at?: string;
-        };
+        Update: Partial<Database['public']['Tables']['refuel_boxes']['Insert']>;
         Relationships: [];
       };
       trips: {
@@ -52,8 +47,10 @@ export interface Database {
           arrival_address: string | null;
           distance_km: number;
           fuel_efficiency_kpl: number | null;
+          average_consumption: number | null;
           consumption_unit: string | null;
           refuel_box_id: string | null;
+          calculated_cost: number | null;
           category: string;
           notes: string | null;
           created_at?: string;
@@ -67,27 +64,15 @@ export interface Database {
           arrival_address?: string | null;
           distance_km: number;
           fuel_efficiency_kpl?: number | null;
+          average_consumption?: number | null;
           consumption_unit?: string | null;
           refuel_box_id?: string | null;
+          calculated_cost?: number | null;
           category?: string;
           notes?: string | null;
           created_at?: string;
         };
-        Update: {
-          id?: string;
-          user_id?: string;
-          departure_time?: string;
-          arrival_time?: string | null;
-          departure_address?: string | null;
-          arrival_address?: string | null;
-          distance_km?: number;
-          fuel_efficiency_kpl?: number | null;
-          consumption_unit?: string | null;
-          refuel_box_id?: string | null;
-          category?: string;
-          notes?: string | null;
-          created_at?: string;
-        };
+        Update: Partial<Database['public']['Tables']['trips']['Insert']>;
         Relationships: [];
       };
     };
@@ -102,5 +87,3 @@ export type Tables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Row'];
 export type TablesInsert<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Insert'];
-export type TablesUpdate<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Update'];
