@@ -10,6 +10,7 @@ import { ReimbursementSummaryCard } from './features/reimbursements/components/R
 import Login from './features/auth/components/Login';
 import { isSupabaseConfigured } from './database/supabaseClient';
 import { ConfigErrorFallback } from './shared/components/ConfigErrorFallback';
+import { InstallAppButton } from './features/pwa/components/InstallAppButton';
 
 export default function App() {
   if (!isSupabaseConfigured) {
@@ -77,13 +78,11 @@ export default function App() {
       <header className={styles.header}>
         <div className={styles.headerContainer}>
           <div>
-            <h1 className={styles.title}>Trip Cost Tracker</h1>
-            <p className={styles.subtitle}>
-              Monitoraggio intelligente dei costi e dei rifornimenti di viaggio
-            </p>
+            <h1 className={styles.title}>Triply</h1>
           </div>
 
           <div className="flex items-center space-x-3">
+            <InstallAppButton />
             <SyncStatusIndicator
               status={syncStatus}
               hasPending={hasPendingChanges}
