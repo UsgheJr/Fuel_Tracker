@@ -7,6 +7,7 @@ import { fetchRefuels } from '../../../database/repositories/refuelRepository';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useMasterSync } from '../../sync/hooks/useMasterSync';
 import { useReimbursements } from '../../reimbursements/hooks/useReimbursements';
+import { tripMatchesRefuelBox } from '../../reimbursements/services/reimbursementCalculator';
 
 export function useAppController() {
   const { session, user, isLoading: loadingSession, signOut } = useAuth();
@@ -92,8 +93,7 @@ export function useAppController() {
     return enrichedTrips.filter((trip) => {
       if (selectedCategory !== 'ALL' && trip.category !== selectedCategory) return false;
       if (selectedBoxId !== 'ALL') {
-        const tripBoxId = trip.refuel_box_id || trip.matchedRefuelBox?.id;
-        if (tripBoxId !== selectedBoxId) return false;
+        if (!tripMatchesRefuelBox(trip, selectedBoxId)) return false;
       }
       if (searchText.trim() !== '') {
         const query = searchText.toLowerCase();

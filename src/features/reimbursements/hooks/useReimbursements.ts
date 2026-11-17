@@ -2,6 +2,7 @@ import { useMemo, useCallback } from 'react';
 import {
   calculateReimbursementSummary,
   isPendingReimbursement,
+  tripMatchesRefuelBox
 } from '../services/reimbursementCalculator';
 import type { Trip } from '../../../shared/types';
 import type { EnrichedTrip } from '../../trips/services/tripMatchingService';
@@ -75,10 +76,7 @@ export function useReimbursements({
     (boxId: string) => {
       const boxTripIds = new Set(
         enrichedTrips
-          .filter((t) => {
-            const effectiveBoxId = t.refuel_box_id || t.matchedRefuelBox?.id;
-            return effectiveBoxId === boxId && isPendingReimbursement(t);
-          })
+          .filter((t) => tripMatchesRefuelBox(t, boxId) && isPendingReimbursement(t))
           .map((t) => t.id)
       );
       markTripIdsAsReimbursed(boxTripIds);

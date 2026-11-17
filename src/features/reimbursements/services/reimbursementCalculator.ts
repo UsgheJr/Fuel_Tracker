@@ -14,6 +14,16 @@ export function isPendingReimbursement(trip: EnrichedTrip): boolean {
   return isWorkTrip(trip) && !trip.is_reimbursed;
 }
 
+/**
+ * Verifica se un viaggio ha consumato carburante (anche parzialmente) da uno specifico box.
+ */
+export function tripMatchesRefuelBox(trip: EnrichedTrip, boxId: string): boolean {
+  if (trip.refuel_box_id === boxId || trip.matchedRefuelBox?.id === boxId) {
+    return true;
+  }
+  return Boolean(trip.allocations?.some((a) => a.boxId === boxId && a.amount > 0));
+}
+
 export function calculateReimbursementSummary(trips: EnrichedTrip[]): ReimbursementSummary {
   let pendingAmount = 0;
   let pendingTripsCount = 0;
@@ -26,7 +36,6 @@ export function calculateReimbursementSummary(trips: EnrichedTrip[]): Reimbursem
     pendingAmount += cost;
     pendingTripsCount += 1;
 
-    // Usa le quote esatte imputate a ciascun box (mai più della capienza reale del pieno)
     if (trip.allocations && trip.allocations.length > 0) {
       for (const alloc of trip.allocations) {
         if (alloc.amount <= 0) continue;
