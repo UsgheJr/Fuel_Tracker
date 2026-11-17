@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { RefuelBox } from '../../../shared/types';
 import { formatCurrency } from '../../../shared/utils/formatters';
 
@@ -6,20 +6,15 @@ interface TripFiltersProps {
   selectedCategory: string;
   onCategoryChange: (category: string) => void;
   categories: string[];
-  
   selectedBoxId: string;
   onBoxChange: (boxId: string) => void;
   refuelBoxes: RefuelBox[];
-
   searchText: string;
   onSearchTextChange: (text: string) => void;
-
   startDate: string;
   onStartDateChange: (date: string) => void;
-
   endDate: string;
   onEndDateChange: (date: string) => void;
-
   totalCost: number;
   totalKm: number;
   totalTrips: number;
@@ -42,27 +37,54 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
   totalKm,
   totalTrips,
 }) => {
+  const [isMobileExpanded, setIsMobileExpanded] = useState(false);
+
   return (
-    <div className="space-y-4">
-      {/* Box KPI di Riepilogo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Costo Totale Filtrato</p>
-          <p className="text-2xl font-extrabold text-emerald-600 mt-1">{formatCurrency(totalCost)}</p>
+    <div className="space-y-3 sm:space-y-4">
+      {/* Box KPI di Riepilogo: 3 colonne compatte anche su mobile */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200">
+          <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">
+            Costo Filtrato
+          </p>
+          <p className="text-base sm:text-2xl font-extrabold text-emerald-600 mt-0.5 sm:mt-1">
+            {formatCurrency(totalCost)}
+          </p>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Chilometri Totali</p>
-          <p className="text-2xl font-extrabold text-indigo-600 mt-1">{totalKm.toFixed(1)} km</p>
+        <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200">
+          <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">
+            Km Totali
+          </p>
+          <p className="text-base sm:text-2xl font-extrabold text-indigo-600 mt-0.5 sm:mt-1">
+            {totalKm.toFixed(1)} km
+          </p>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Viaggi Filtrati</p>
-          <p className="text-2xl font-extrabold text-slate-800 mt-1">{totalTrips}</p>
+        <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200">
+          <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">
+            Viaggi
+          </p>
+          <p className="text-base sm:text-2xl font-extrabold text-slate-800 mt-0.5 sm:mt-1">
+            {totalTrips}
+          </p>
         </div>
       </div>
 
+      {/* Pulsante Toggle Filtri visibile solo su Smartphone (< 640px) */}
+      <button
+        type="button"
+        onClick={() => setIsMobileExpanded((prev) => !prev)}
+        className="sm:hidden w-full py-2.5 px-4 bg-white border border-slate-200 rounded-xl shadow-2xs text-xs font-bold text-slate-700 flex items-center justify-between cursor-pointer"
+      >
+        <span>Filtra Viaggi (Categoria, Box, Date)</span>
+        <span className="text-indigo-600">{isMobileExpanded ? 'Nascondi ▲' : 'Mostra ▼'}</span>
+      </button>
+
       {/* Pannello Filtri Avanzati */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
-        {/* Ricerca Testo (Partenza / Arrivo) */}
+      <div
+        className={`${
+          isMobileExpanded ? 'grid' : 'hidden'
+        } sm:grid bg-white p-4 rounded-xl shadow-sm border border-slate-200 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs`}
+      >
         <div>
           <label className="block font-semibold text-slate-600 mb-1">Cerca (Partenza / Arrivo)</label>
           <input
@@ -74,7 +96,6 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
           />
         </div>
 
-        {/* Filtro Categoria */}
         <div>
           <label className="block font-semibold text-slate-600 mb-1">Categoria</label>
           <select
@@ -89,7 +110,6 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
           </select>
         </div>
 
-        {/* Filtro Box Rifornimento */}
         <div>
           <label className="block font-semibold text-slate-600 mb-1">Box Rifornimento</label>
           <select
@@ -99,12 +119,13 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
           >
             <option value="ALL">Tutti i box</option>
             {refuelBoxes.map((box) => (
-              <option key={box.id} value={box.id}>{box.notes} ({box.price_per_liter} €/l)</option>
+              <option key={box.id} value={box.id}>
+                {box.notes} ({box.price_per_liter} €/l)
+              </option>
             ))}
           </select>
         </div>
 
-        {/* Filtro Data Inizio */}
         <div>
           <label className="block font-semibold text-slate-600 mb-1">Da Data</label>
           <input
@@ -115,7 +136,6 @@ export const TripFilters: React.FC<TripFiltersProps> = ({
           />
         </div>
 
-        {/* Filtro Data Fine */}
         <div>
           <label className="block font-semibold text-slate-600 mb-1">A Data</label>
           <input

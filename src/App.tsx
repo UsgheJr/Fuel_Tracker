@@ -81,7 +81,7 @@ export default function App() {
             <h1 className={styles.title}>Triply</h1>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className={styles.headerActions}>
             <InstallAppButton />
             <SyncStatusIndicator
               status={syncStatus}

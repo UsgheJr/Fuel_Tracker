@@ -17,9 +17,35 @@ export const TripTableToolbar: React.FC<TripTableToolbarProps> = ({
   onDeleteSelected,
   onReimburseSelected,
 }) => {
+  if (selectedCount === 0) {
+    return (
+      <div className={`hidden md:flex ${styles.toolbarWrapper}`}>
+        <div className="flex items-center space-x-3">
+          <span className="font-semibold text-slate-700">Modalità vista:</span>
+          <div className={styles.densityToggleContainer}>
+            <button
+              type="button"
+              onClick={() => onDensityChange('compact')}
+              className={styles.densityButton(density === 'compact')}
+            >
+              Compatta
+            </button>
+            <button
+              type="button"
+              onClick={() => onDensityChange('expanded')}
+              className={styles.densityButton(density === 'expanded')}
+            >
+              Estesa
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.toolbarWrapper}>
-      <div className="flex items-center space-x-3">
+      <div className="hidden md:flex items-center space-x-3">
         <span className="font-semibold text-slate-700">Modalità vista:</span>
         <div className={styles.densityToggleContainer}>
           <button
@@ -39,18 +65,18 @@ export const TripTableToolbar: React.FC<TripTableToolbarProps> = ({
         </div>
       </div>
 
-      {selectedCount > 0 && (
-        <div className="flex flex-wrap items-center gap-2.5">
-          <span className="font-bold text-slate-700">
-            {selectedCount} {selectedCount === 1 ? 'viaggio selezionato' : 'viaggi selezionati'}
-          </span>
+      <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full md:w-auto justify-between md:justify-end">
+        <span className="font-bold text-slate-700">
+          {selectedCount} {selectedCount === 1 ? 'selezionato' : 'selezionati'}
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
           {onReimburseSelected && (
             <button
               type="button"
               onClick={onReimburseSelected}
               className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-2xs transition-colors cursor-pointer"
             >
-              Segna Selezionati come Rimborsati
+              Segna Rimborsati
             </button>
           )}
           <button
@@ -58,10 +84,10 @@ export const TripTableToolbar: React.FC<TripTableToolbarProps> = ({
             onClick={onDeleteSelected}
             className={styles.deleteButton}
           >
-            Elimina Selezionati
+            Elimina
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 };

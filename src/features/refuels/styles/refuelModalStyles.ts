@@ -14,12 +14,11 @@ export const refuelModalStyles = {
 
   // Overlay & Modali
   overlay:
-    'fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50',
+    'fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50',
   modalBoxSmall:
-    'bg-white shadow-xl rounded-2xl border border-slate-200 p-6 max-w-md w-full animate-in fade-in zoom-in-95 duration-150',
+    'bg-white shadow-xl rounded-t-2xl sm:rounded-2xl border border-slate-200 p-5 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto',
   modalBoxLarge:
-    'bg-white shadow-xl rounded-2xl border border-slate-200 p-6 max-w-2xl w-full max-h-[85vh] flex flex-col',
-  modalHeader: 'flex items-center justify-between pb-4 mb-4 border-b border-slate-100',
+    'bg-white shadow-xl rounded-t-2xl sm:rounded-2xl border border-slate-200 p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] sm:max-h-[85vh] flex flex-col',  modalHeader: 'flex items-center justify-between pb-4 mb-4 border-b border-slate-100',
   modalTitle: 'text-base font-bold text-slate-800',
   closeBtn:
     'text-slate-400 hover:text-slate-700 text-sm font-bold px-2 py-1 rounded-lg hover:bg-slate-100 cursor-pointer',

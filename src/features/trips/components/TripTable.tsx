@@ -3,6 +3,7 @@ import { tripTableStyles as styles } from '../styles/tripTableStyles';
 import { useTripTable } from '../hooks/useTripTable';
 import { TripTableToolbar } from './TripTableToolbar';
 import { TripTableRow } from './TripTableRow';
+import { TripMobileCard } from './TripMobileCard';
 import type { EnrichedTrip } from '../services/tripMatchingService';
 
 export interface TripTableProps {
@@ -42,7 +43,38 @@ export const TripTable: React.FC<TripTableProps> = ({
         onReimburseSelected={onReimburseMultiple ? handleReimburseSelected : undefined}
       />
 
-      <div className="overflow-x-auto">
+      {/* Vista Mobile (< 768px): Card Touch-Friendly */}
+      <div className="md:hidden divide-y divide-slate-200">
+        {trips.length === 0 ? (
+          <p className="text-center py-8 text-xs text-slate-400 italic">
+            Nessun viaggio trovato con i filtri selezionati.
+          </p>
+        ) : (
+          <>
+            <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 text-xs font-semibold text-slate-600">
+              <input
+                type="checkbox"
+                checked={isAllSelected}
+                onChange={handleSelectAll}
+                className={styles.checkbox}
+              />
+              <span>Seleziona tutti ({trips.length})</span>
+            </div>
+            {trips.map((trip) => (
+              <TripMobileCard
+                key={trip.id}
+                trip={trip}
+                isSelected={selectedTripIds.includes(trip.id)}
+                onSelect={handleSelectTrip}
+                onReimburseSingle={onReimburseSingle}
+              />
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* Vista Tablet & Desktop (>= 768px): Tabella Completa */}
+      <div className="hidden md:block overflow-x-auto">
         <table className={styles.table}>
           <thead className={styles.header}>
             <tr>
