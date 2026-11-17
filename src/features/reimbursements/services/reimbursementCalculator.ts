@@ -26,13 +26,16 @@ export function calculateReimbursementSummary(trips: EnrichedTrip[]): Reimbursem
     pendingAmount += cost;
     pendingTripsCount += 1;
 
-    const effectiveBoxId = trip.refuel_box_id || trip.matchedRefuelBox?.id;
-    if (effectiveBoxId) {
-      const current = pendingByBoxId.get(effectiveBoxId) ?? { amount: 0, count: 0 };
-      pendingByBoxId.set(effectiveBoxId, {
-        amount: Number((current.amount + cost).toFixed(2)),
-        count: current.count + 1,
-      });
+    // Usa le quote esatte imputate a ciascun box (mai più della capienza reale del pieno)
+    if (trip.allocations && trip.allocations.length > 0) {
+      for (const alloc of trip.allocations) {
+        if (alloc.amount <= 0) continue;
+        const current = pendingByBoxId.get(alloc.boxId) ?? { amount: 0, count: 0 };
+        pendingByBoxId.set(alloc.boxId, {
+          amount: Number((current.amount + alloc.amount).toFixed(2)),
+          count: current.count + 1,
+        });
+      }
     }
   }
 
